@@ -1,0 +1,144 @@
+# ============================================================================
+# BmsSiteOps — root .gitignore
+# Public repo: NEVER commit secrets, .env, customer data, or credentials.
+# ============================================================================
+
+# --- Environment / secrets (ALL OF THESE MUST STAY IGNORED) ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.crt
+secrets/
+.envrc
+
+# --- Operating system ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# --- Editor / IDE ---
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo
+*~
+.fleet/
+.zed/
+*.iml
+
+# --- Logs / temp ---
+*.log
+logs/
+tmp/
+temp/
+*.tmp
+.cache/
+
+# ============================================================================
+# Laravel (apps/api)
+# ============================================================================
+apps/api/vendor/
+apps/api/node_modules/
+apps/api/public/build/
+apps/api/public/hot
+apps/api/public/storage
+apps/api/storage/*.key
+apps/api/storage/app/public/*
+!apps/api/storage/app/public/.gitkeep
+apps/api/storage/framework/cache/data/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/testing/*
+apps/api/storage/framework/views/*
+apps/api/storage/logs/*
+!apps/api/storage/**/.gitkeep
+apps/api/bootstrap/cache/*.php
+!apps/api/bootstrap/cache/.gitkeep
+apps/api/.phpunit.result.cache
+apps/api/.phpunit.cache/
+apps/api/auth.json
+apps/api/.php-cs-fixer.cache
+apps/api/.pint.cache
+apps/api/phpstan.cache/
+apps/api/_ide_helper.php
+apps/api/_ide_helper_models.php
+apps/api/.phpstorm.meta.php
+
+# ============================================================================
+# SvelteKit (apps/web)
+# ============================================================================
+apps/web/node_modules/
+apps/web/.svelte-kit/
+apps/web/build/
+apps/web/.vercel/
+apps/web/.netlify/
+apps/web/.output/
+apps/web/.vite/
+apps/web/dist/
+apps/web/coverage/
+apps/web/*.tsbuildinfo
+apps/web/.turbo/
+apps/web/.eslintcache
+
+# ============================================================================
+# Python worker (apps/worker)
+# ============================================================================
+apps/worker/__pycache__/
+apps/worker/**/__pycache__/
+apps/worker/*.pyc
+apps/worker/*.pyo
+apps/worker/.pytest_cache/
+apps/worker/.ruff_cache/
+apps/worker/.mypy_cache/
+apps/worker/.venv/
+apps/worker/venv/
+apps/worker/.python-version
+apps/worker/htmlcov/
+apps/worker/.coverage
+apps/worker/coverage.xml
+apps/worker/*.egg-info/
+apps/worker/dist/
+apps/worker/build/
+
+# ============================================================================
+# Docker
+# ============================================================================
+**/docker-compose.override.yml
+**/docker-compose.local.yml
+infra/compose/data/
+
+# ============================================================================
+# Database dumps / backups (never commit)
+# ============================================================================
+*.sql
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+backups/
+
+# ============================================================================
+# AI / model files (never commit, they're huge)
+# ============================================================================
+*.gguf
+*.safetensors
+*.bin
+models/
+
+# ============================================================================
+# Local notes / scratchpad (gitignore by convention)
+# ============================================================================
+NOTES.md
+TODO.local.md
+scratch/
+.claude/

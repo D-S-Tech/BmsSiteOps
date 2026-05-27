@@ -1,0 +1,13 @@
+# BmsSiteOps — code ownership
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+*                       @denny-bold
+
+# Architecture decisions require maintainer review without exception
+/docs/adr/              @denny-bold
+
+# Security-critical files
+/SECURITY.md            @denny-bold
+/.github/               @denny-bold
+/infra/                 @denny-bold

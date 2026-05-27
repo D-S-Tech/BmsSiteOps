@@ -1,0 +1,27 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_size = 4
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{js,ts,jsx,tsx,svelte,json,jsonc,yml,yaml,md,html,css,scss}]
+indent_size = 2
+
+[*.{py,toml}]
+indent_size = 4
+
+[{Makefile,*.mk}]
+indent_style = tab
+
+[*.{md,mdx}]
+trim_trailing_whitespace = false
+
+[*.go]
+indent_style = tab
+
+[composer.json]
+indent_size = 4

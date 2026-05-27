@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # The real per-app jobs (lint + test for api, web, worker) land in Sprint 0
+  # Days 3 and 4 when the apps themselves are scaffolded. This Day 1 placeholder
+  # job runs on every PR to verify CI itself is wired up and to enforce the
+  # repository-wide rules below.
+
+  repo-hygiene:
+    name: Repo hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify required documentation exists
+        run: |
+          for f in README.md LICENSE SECURITY.md CONTRIBUTING.md docs/ARCHITECTURE.md docs/adr/README.md; do
+            if [ ! -f "$f" ]; then
+              echo "::error file=$f::Required file is missing"
+              exit 1
+            fi
+          done
+
+      - name: Verify .env files are not committed
+        run: |
+          if git ls-files | grep -Ev '^\.env\.example$|^\.env\.[a-z]+\.example$' | grep -E '^\.env'; then
+            echo "::error::A non-example .env file is committed"
+            exit 1
+          fi
+
+      - name: Detect committed secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: false
