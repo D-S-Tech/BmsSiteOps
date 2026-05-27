@@ -1,19 +1,22 @@
 # BmsSiteOps — top-level Makefile
 # Wraps the docker-compose lifecycle so day-to-day dev fits in muscle memory.
 
-COMPOSE_DEV  := docker compose -f infra/compose/docker-compose.dev.yml
-COMPOSE_PROD := docker compose -f infra/compose/docker-compose.prod.yml
+COMPOSE_DEV       := docker compose -f infra/compose/docker-compose.dev.yml
+COMPOSE_DEV_APPS  := docker compose -f infra/compose/docker-compose.dev.yml --profile apps
+COMPOSE_PROD      := docker compose -f infra/compose/docker-compose.prod.yml
 
 .PHONY: help
 help:
 	@echo "BmsSiteOps — available targets"
 	@echo ""
 	@echo "  Local development"
-	@echo "    make dev-up        Start the dev stack (postgres, redis, api, web, worker, caddy, meilisearch)"
-	@echo "    make dev-down      Stop the dev stack"
-	@echo "    make dev-restart   Restart the dev stack"
+	@echo "    make dev-up        Start infra only (postgres, redis, meilisearch)"
+	@echo "    make dev-up-all    Start infra + apps (api, web, worker, caddy)"
+	@echo "    make dev-down      Stop everything (including app profile services)"
+	@echo "    make dev-restart   Restart the running stack"
 	@echo "    make dev-rebuild   Rebuild all images (after Dockerfile changes)"
 	@echo "    make dev-clean     Tear down everything including volumes (DESTROYS LOCAL DATA)"
+	@echo "    make dev-ps        Show the dev stack status"
 	@echo "    make logs          Tail all dev logs"
 	@echo "    make logs-api      Tail Laravel api logs"
 	@echo "    make logs-worker   Tail Python worker logs"
@@ -24,6 +27,7 @@ help:
 	@echo "    make sh-worker     Open a shell in the worker container"
 	@echo "    make sh-web        Open a shell in the web container"
 	@echo "    make sh-db         Open a psql shell"
+	@echo "    make sh-redis      Open a redis-cli shell"
 	@echo ""
 	@echo "  Laravel"
 	@echo "    make api-migrate   Run database migrations"
@@ -44,98 +48,111 @@ help:
 	@echo "  Production"
 	@echo "    make prod-up       Bring up the production stack"
 	@echo "    make prod-down     Stop the production stack"
+	@echo "    make prod-ps       Show the prod stack status"
 	@echo "    make prod-deploy   Pull latest images and reload"
 
 # --- Dev lifecycle ---
-.PHONY: dev-up dev-down dev-restart dev-rebuild dev-clean logs logs-api logs-worker logs-web
+.PHONY: dev-up dev-up-all dev-down dev-restart dev-rebuild dev-clean dev-ps logs logs-api logs-worker logs-web
 dev-up:
 	$(COMPOSE_DEV) up -d
 
+dev-up-all:
+	$(COMPOSE_DEV_APPS) up -d
+
 dev-down:
-	$(COMPOSE_DEV) down
+	$(COMPOSE_DEV_APPS) down
 
 dev-restart:
-	$(COMPOSE_DEV) restart
+	$(COMPOSE_DEV_APPS) restart
 
 dev-rebuild:
-	$(COMPOSE_DEV) build --no-cache
-	$(COMPOSE_DEV) up -d
+	$(COMPOSE_DEV_APPS) build --no-cache
+	$(COMPOSE_DEV_APPS) up -d
 
 dev-clean:
-	$(COMPOSE_DEV) down -v --remove-orphans
+	$(COMPOSE_DEV_APPS) down -v --remove-orphans
+
+dev-ps:
+	$(COMPOSE_DEV_APPS) ps
 
 logs:
-	$(COMPOSE_DEV) logs -f --tail=200
+	$(COMPOSE_DEV_APPS) logs -f --tail=200
 
 logs-api:
-	$(COMPOSE_DEV) logs -f --tail=200 api
+	$(COMPOSE_DEV_APPS) logs -f --tail=200 api
 
 logs-worker:
-	$(COMPOSE_DEV) logs -f --tail=200 worker
+	$(COMPOSE_DEV_APPS) logs -f --tail=200 worker
 
 logs-web:
-	$(COMPOSE_DEV) logs -f --tail=200 web
+	$(COMPOSE_DEV_APPS) logs -f --tail=200 web
 
 # --- Shells ---
-.PHONY: sh-api sh-worker sh-web sh-db
+.PHONY: sh-api sh-worker sh-web sh-db sh-redis
 sh-api:
-	$(COMPOSE_DEV) exec api bash
+	$(COMPOSE_DEV_APPS) exec api bash
 
 sh-worker:
-	$(COMPOSE_DEV) exec worker bash
+	$(COMPOSE_DEV_APPS) exec worker bash
 
 sh-web:
-	$(COMPOSE_DEV) exec web sh
+	$(COMPOSE_DEV_APPS) exec web sh
 
 sh-db:
 	$(COMPOSE_DEV) exec postgres psql -U bmssiteops -d bmssiteops
 
+sh-redis:
+	$(COMPOSE_DEV) exec redis redis-cli
+
 # --- Laravel targets ---
 .PHONY: api-migrate api-seed api-fresh api-test api-pint
 api-migrate:
-	$(COMPOSE_DEV) exec api php artisan migrate
+	$(COMPOSE_DEV_APPS) exec api php artisan migrate
 
 api-seed:
-	$(COMPOSE_DEV) exec api php artisan db:seed
+	$(COMPOSE_DEV_APPS) exec api php artisan db:seed
 
 api-fresh:
-	$(COMPOSE_DEV) exec api php artisan migrate:fresh --seed
+	$(COMPOSE_DEV_APPS) exec api php artisan migrate:fresh --seed
 
 api-test:
-	$(COMPOSE_DEV) exec api ./vendor/bin/pest
+	$(COMPOSE_DEV_APPS) exec api ./vendor/bin/pest
 
 api-pint:
-	$(COMPOSE_DEV) exec api ./vendor/bin/pint
+	$(COMPOSE_DEV_APPS) exec api ./vendor/bin/pint
 
 # --- SvelteKit targets ---
 .PHONY: web-install web-check web-test
 web-install:
-	$(COMPOSE_DEV) exec web npm install
+	$(COMPOSE_DEV_APPS) exec web npm install
 
 web-check:
-	$(COMPOSE_DEV) exec web npm run check
+	$(COMPOSE_DEV_APPS) exec web npm run check
 
 web-test:
-	$(COMPOSE_DEV) exec web npm run test
+	$(COMPOSE_DEV_APPS) exec web npm run test
 
 # --- Python worker targets ---
 .PHONY: worker-test worker-lint
 worker-test:
-	$(COMPOSE_DEV) exec worker pytest
+	$(COMPOSE_DEV_APPS) exec worker uv run pytest
 
 worker-lint:
-	$(COMPOSE_DEV) exec worker ruff check .
-	$(COMPOSE_DEV) exec worker mypy app
+	$(COMPOSE_DEV_APPS) exec worker uv run ruff check .
+	$(COMPOSE_DEV_APPS) exec worker uv run mypy app
 
 # --- Production ---
-.PHONY: prod-up prod-down prod-deploy
+.PHONY: prod-up prod-down prod-ps prod-deploy
 prod-up:
 	$(COMPOSE_PROD) up -d
 
 prod-down:
 	$(COMPOSE_PROD) down
 
+prod-ps:
+	$(COMPOSE_PROD) ps
+
 prod-deploy:
 	git pull --ff-only
-	$(COMPOSE_PROD) pull
+	$(COMPOSE_PROD) build --pull
 	$(COMPOSE_PROD) up -d --remove-orphans

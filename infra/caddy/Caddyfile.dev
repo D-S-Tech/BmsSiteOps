@@ -1,0 +1,93 @@
+# =============================================================================
+# BmsSiteOps — Caddyfile (development)
+# =============================================================================
+# Local development. HTTP only on port 80 (mapped to host 8080 by compose).
+# Add the following entries to /etc/hosts on the developer machine:
+#
+#   127.0.0.1   ops.local
+#   127.0.0.1   ops-mcp.local
+#
+# Then browse to http://ops.local:8080 and http://ops-mcp.local:8080.
+#
+# No TLS in dev. No HSTS. No security headers (so the browser dev console
+# does not nag about mixed content during local debugging).
+# =============================================================================
+
+{
+    auto_https off
+    admin off
+}
+
+# -----------------------------------------------------------------------------
+# Main web application — SvelteKit + Laravel API
+# -----------------------------------------------------------------------------
+:80, ops.local, localhost {
+    encode zstd gzip
+
+    # --- Health check --------------------------------------------------------
+    handle /health {
+        respond "ok" 200
+    }
+
+    # --- Laravel API + admin -------------------------------------------------
+    @php {
+        path /api/* /admin* /horizon* /telescope* /livewire/* /pulse*
+    }
+    handle @php {
+        root * /srv/api/public
+        php_fastcgi api:9000 {
+            split .php
+            index index.php
+            try_files {path} {path}/ /index.php?{query}
+        }
+    }
+
+    # --- Laravel public assets -----------------------------------------------
+    @api_static {
+        path /build/* /storage/* /vendor/* /robots.txt /favicon.ico
+    }
+    handle @api_static {
+        root * /srv/api/public
+        file_server
+    }
+
+    # --- Everything else → SvelteKit dev server (with HMR) -------------------
+    handle {
+        reverse_proxy web:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}
+
+# -----------------------------------------------------------------------------
+# MCP endpoint
+# -----------------------------------------------------------------------------
+ops-mcp.local {
+    encode zstd gzip
+
+    reverse_proxy worker:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        flush_interval -1
+        transport http {
+            read_timeout 24h
+            write_timeout 24h
+        }
+    }
+
+    log {
+        output stdout
+        format console
+    }
+}

@@ -1,0 +1,189 @@
+# =============================================================================
+# BmsSiteOps — Docker Compose (development)
+# =============================================================================
+# Local development stack. All infrastructure services come up by default;
+# the application services (api, web, worker, caddy) are behind the `apps`
+# profile and only run when explicitly requested:
+#
+#   make dev-up           → infra only (postgres, redis, meilisearch)
+#   make dev-up-apps      → infra + apps (after Sprint 0 Days 3-4 ship code)
+#
+# Ports are exposed to the host for developer convenience (DBeaver, redis-cli,
+# Meilisearch dashboard). PRODUCTION compose file does not expose these ports.
+#
+# Source for each app is bind-mounted; rebuilds happen via hot-reload tooling
+# (php artisan serve, npm run dev, uvicorn --reload). No need to rebuild
+# images for code changes — only for dependency changes.
+# =============================================================================
+
+name: bmssiteops
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16 — primary datastore
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: bmssiteops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-bmssiteops}
+      POSTGRES_USER: ${DB_USERNAME:-bmssiteops}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-changeme}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-bmssiteops} -d ${DB_DATABASE:-bmssiteops}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Redis 7 — cache, queues (Horizon), pub/sub, rate limits
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: bmssiteops-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Meilisearch — full-text search
+  # ---------------------------------------------------------------------------
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    container_name: bmssiteops-meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: development
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY:-changeme}
+      MEILI_NO_ANALYTICS: "true"
+    ports:
+      - "7700:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7700/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # API — Laravel 11 + PHP-FPM (Sprint 0 Day 3 will land the application code)
+  # ---------------------------------------------------------------------------
+  api:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      target: base
+    container_name: bmssiteops-api
+    restart: unless-stopped
+    env_file: ../../.env
+    volumes:
+      - ../../apps/api:/var/www/html
+      - api_storage:/var/www/html/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Web — SvelteKit dev server (Sprint 0 Day 4 will land the application code)
+  # ---------------------------------------------------------------------------
+  web:
+    profiles: [apps]
+    image: node:22-alpine
+    container_name: bmssiteops-web
+    restart: unless-stopped
+    working_dir: /app
+    command: ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0 --port 3000"]
+    env_file: ../../.env
+    volumes:
+      - ../../apps/web:/app
+      - web_node_modules:/app/node_modules
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Worker — Python FastAPI + uv (Sprint 0 Day 4 will land the application code)
+  # ---------------------------------------------------------------------------
+  worker:
+    profiles: [apps]
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+      target: builder
+    container_name: bmssiteops-worker
+    restart: unless-stopped
+    command: ["uv", "run", "uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+    env_file: ../../.env
+    volumes:
+      - ../../apps/worker:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Caddy — reverse proxy for all developer-facing endpoints
+  # ---------------------------------------------------------------------------
+  caddy:
+    profiles: [apps]
+    image: caddy:2-alpine
+    container_name: bmssiteops-caddy
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - ../caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+      - ../../apps/api/public:/srv/api/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - web
+      - worker
+    networks: [bmssiteops]
+
+# =============================================================================
+# Volumes — named, persistent across container restarts
+# =============================================================================
+volumes:
+  postgres_data:
+  redis_data:
+  meilisearch_data:
+  api_storage:
+  web_node_modules:
+  caddy_data:
+  caddy_config:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  bmssiteops:
+    driver: bridge
+    name: bmssiteops

@@ -1,0 +1,130 @@
+# =============================================================================
+# BmsSiteOps — Caddyfile (production)
+# =============================================================================
+# Three virtual hosts behind a single Caddy instance:
+#
+#   {$WEB_HOST}   ops.bmssiteops.com    main web app
+#                                       /api/*    -> api (PHP-FPM via FastCGI)
+#                                       /admin*   -> api (Filament panel)
+#                                       /horizon* -> api (Horizon dashboard, IP-restricted)
+#                                       /health   -> api
+#                                       /*        -> web (SvelteKit SSR)
+#
+#   {$MCP_HOST}   ops-mcp.bmssiteops    Model Context Protocol server
+#                                       /*        -> worker (FastAPI MCP endpoint)
+#
+# TLS is automatic via Let's Encrypt. HTTP is redirected to HTTPS.
+# HTTP/3 (QUIC) on UDP/443 is enabled by default in Caddy 2.
+# =============================================================================
+
+{
+    email {$ACME_EMAIL}
+    admin off
+
+    servers {
+        protocols h1 h2 h3
+    }
+}
+
+# -----------------------------------------------------------------------------
+# Main web application — SvelteKit + Laravel API
+# -----------------------------------------------------------------------------
+{$WEB_HOST} {
+    # --- Security headers ----------------------------------------------------
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+        -Server
+    }
+
+    # --- Compression ---------------------------------------------------------
+    encode zstd gzip
+
+    # --- Health check (public, no auth) --------------------------------------
+    handle /health {
+        reverse_proxy api:9000 {
+            transport fastcgi {
+                root /srv/api/public
+                split .php
+                index index.php
+            }
+        }
+    }
+
+    # --- Laravel API + Filament admin + Horizon dashboard --------------------
+    # All PHP routes go to PHP-FPM via FastCGI; Caddy serves static assets
+    # directly from the api container's public/ (bind-mounted read-only).
+    @php {
+        path /api/* /admin* /horizon* /telescope* /livewire/* /pulse*
+    }
+    handle @php {
+        root * /srv/api/public
+        php_fastcgi api:9000 {
+            split .php
+            index index.php
+            try_files {path} {path}/ /index.php?{query}
+        }
+    }
+
+    # --- Laravel public asset paths (storage link, build artifacts) ----------
+    @api_static {
+        path /build/* /storage/* /vendor/* /robots.txt /favicon.ico
+    }
+    handle @api_static {
+        root * /srv/api/public
+        file_server
+    }
+
+    # --- Everything else goes to SvelteKit SSR -------------------------------
+    handle {
+        reverse_proxy web:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+            header_up X-Forwarded-For {remote_host}
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+
+    # --- Logging -------------------------------------------------------------
+    log {
+        output stdout
+        format json
+    }
+}
+
+# -----------------------------------------------------------------------------
+# MCP endpoint — Model Context Protocol server hosted by the Python worker
+# -----------------------------------------------------------------------------
+{$MCP_HOST} {
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    encode zstd gzip
+
+    # SSE endpoints need buffering disabled and long timeouts
+    reverse_proxy worker:8000 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # SSE/streaming friendliness
+        flush_interval -1
+        transport http {
+            read_timeout 24h
+            write_timeout 24h
+        }
+    }
+
+    log {
+        output stdout
+        format json
+    }
+}

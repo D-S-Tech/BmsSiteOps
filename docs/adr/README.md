@@ -23,10 +23,11 @@ The recommended sections:
 
 ## Index
 
-| #    | Title                                                  | Status   | Date       |
-|------|--------------------------------------------------------|----------|------------|
-| 0001 | [Monorepo](./0001-monorepo.md)                         | Accepted | 2026-05-27 |
-| 0002 | [Multi-tenancy: row-level](./0002-multi-tenancy-row-level.md) | Accepted | 2026-05-27 |
-| 0003 | [Stack choices](./0003-stack-choices.md)               | Accepted | 2026-05-27 |
+| #    | Title                                                          | Status   | Date       |
+|------|----------------------------------------------------------------|----------|------------|
+| 0001 | [Monorepo](./0001-monorepo.md)                                 | Accepted | 2026-05-27 |
+| 0002 | [Multi-tenancy: row-level](./0002-multi-tenancy-row-level.md)  | Accepted | 2026-05-27 |
+| 0003 | [Stack choices](./0003-stack-choices.md)                       | Accepted | 2026-05-27 |
 | 0004 | [Public repo security posture](./0004-public-repo-security.md) | Accepted | 2026-05-27 |
-| 0005 | [License: AGPL-3.0](./0005-license-agpl.md)            | Accepted | 2026-05-27 |
+| 0005 | [License: AGPL-3.0](./0005-license-agpl.md)                    | Accepted | 2026-05-27 |
+| 0006 | [Containerization patterns](./0006-containerization-patterns.md) | Accepted | 2026-05-27 |

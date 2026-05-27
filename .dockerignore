@@ -1,0 +1,87 @@
+# =============================================================================
+# Shared .dockerignore for all BmsSiteOps Docker builds
+# =============================================================================
+# This file lives at the repo root and applies to every `docker build` invoked
+# with the repo root as context. The Dockerfiles in infra/docker/ use COPY
+# paths like `apps/api/`, `apps/web/`, `apps/worker/`, so this single ignore
+# list is sufficient.
+# =============================================================================
+
+# --- Version control ---
+.git
+.gitignore
+.gitattributes
+.github
+
+# --- Documentation (not needed in images) ---
+docs
+*.md
+LICENSE
+SECURITY.md
+CONTRIBUTING.md
+README.md
+
+# --- Editor / IDE ---
+.idea
+.vscode
+.fleet
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Environment / secrets (never bake into an image) ---
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.crt
+secrets/
+
+# --- Build artifacts (will be regenerated inside the image) ---
+apps/api/vendor
+apps/api/node_modules
+apps/api/public/build
+apps/api/public/hot
+apps/api/storage/framework/cache/data/*
+apps/api/storage/framework/sessions/*
+apps/api/storage/framework/views/*
+apps/api/storage/logs/*
+apps/api/bootstrap/cache/*.php
+
+apps/web/node_modules
+apps/web/.svelte-kit
+apps/web/build
+apps/web/.vite
+apps/web/dist
+apps/web/coverage
+
+apps/worker/__pycache__
+apps/worker/**/__pycache__
+apps/worker/*.pyc
+apps/worker/.venv
+apps/worker/venv
+apps/worker/.pytest_cache
+apps/worker/.ruff_cache
+apps/worker/.mypy_cache
+apps/worker/htmlcov
+apps/worker/.coverage
+
+# --- Logs / temp ---
+*.log
+logs
+tmp
+temp
+
+# --- Test / CI artifacts ---
+coverage
+.nyc_output
+.phpunit.result.cache
+.phpunit.cache
+.pint.cache
+phpstan.cache
+
+# --- Infrastructure (separate concern from app builds) ---
+infra/compose/data

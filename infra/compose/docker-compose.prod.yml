@@ -1,0 +1,254 @@
+# =============================================================================
+# BmsSiteOps — Docker Compose (production)
+# =============================================================================
+# Production stack — invoked from the deployed LXC container as:
+#
+#   make prod-up        first time
+#   make prod-deploy    subsequent deploys (git pull → pull images → up -d)
+#
+# Differences from dev:
+#   - No host port exposure for postgres, redis, meilisearch (internal only)
+#   - Apps run in `production` build target (no bind mounts, no hot reload)
+#   - Caddy serves on real 80/443 with automatic Let's Encrypt
+#   - All services in one compose file (no profile gating)
+#   - Resource limits applied
+#   - Read-only filesystem where possible
+# =============================================================================
+
+name: bmssiteops
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: bmssiteops-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Redis 7
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: bmssiteops-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "1gb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1500M
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Meilisearch
+  # ---------------------------------------------------------------------------
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    container_name: bmssiteops-meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_ENV: production
+      MEILI_MASTER_KEY: ${MEILISEARCH_KEY}
+      MEILI_NO_ANALYTICS: "true"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:7700/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # API — Laravel 11 / PHP-FPM (production target, vendor/ baked in)
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ../..
+      dockerfile: infra/docker/api.Dockerfile
+      target: production
+    image: bmssiteops/api:latest
+    container_name: bmssiteops-api
+    restart: unless-stopped
+    env_file: ../../.env
+    volumes:
+      - api_storage:/var/www/html/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # API queue worker — Horizon
+  # ---------------------------------------------------------------------------
+  api-horizon:
+    image: bmssiteops/api:latest
+    container_name: bmssiteops-api-horizon
+    restart: unless-stopped
+    command: ["php", "artisan", "horizon"]
+    env_file: ../../.env
+    volumes:
+      - api_storage:/var/www/html/storage
+    depends_on:
+      api:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # API scheduler — Laravel cron
+  # ---------------------------------------------------------------------------
+  api-scheduler:
+    image: bmssiteops/api:latest
+    container_name: bmssiteops-api-scheduler
+    restart: unless-stopped
+    command: ["php", "artisan", "schedule:work"]
+    env_file: ../../.env
+    volumes:
+      - api_storage:/var/www/html/storage
+    depends_on:
+      api:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Web — SvelteKit SSR (adapter-node)
+  # ---------------------------------------------------------------------------
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/web.Dockerfile
+      target: runtime
+    image: bmssiteops/web:latest
+    container_name: bmssiteops-web
+    restart: unless-stopped
+    env_file: ../../.env
+    environment:
+      PORT: 3000
+      HOST: 0.0.0.0
+      ORIGIN: https://${WEB_HOST}
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Worker — Python FastAPI (collectors + AI tasks + MCP endpoint)
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ../..
+      dockerfile: infra/docker/worker.Dockerfile
+      target: runtime
+    image: bmssiteops/worker:latest
+    container_name: bmssiteops-worker
+    restart: unless-stopped
+    env_file: ../../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
+  # Caddy — TLS termination + reverse proxy + static asset serving
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: bmssiteops-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"          # HTTP/3 (QUIC)
+    volumes:
+      - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ../../apps/api/public:/srv/api/public:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      WEB_HOST: ${WEB_HOST}
+      API_HOST: ${API_HOST}
+      MCP_HOST: ${MCP_HOST}
+      ACME_EMAIL: ${ACME_EMAIL:-ops@bmssiteops.com}
+    depends_on:
+      - api
+      - web
+      - worker
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks: [bmssiteops]
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  postgres_data:
+  redis_data:
+  meilisearch_data:
+  api_storage:
+  caddy_data:
+  caddy_config:
+
+# =============================================================================
+# Networks
+# =============================================================================
+networks:
+  bmssiteops:
+    driver: bridge
+    name: bmssiteops
