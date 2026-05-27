@@ -29,7 +29,7 @@ jobs:
 
       - name: Verify .env files are not committed
         run: |
-          if git ls-files | grep -Ev '^\.env\.example$|^\.env\.[a-z]+\.example$' | grep -E '^\.env|/\.env$'; then
+          if git ls-files | grep -Ev '^\.env\.example$|^\.env\.[a-z]+\.example$|\.env\.example$' | grep -E '^\.env|/\.env$'; then
             echo "::error::A non-example .env file is committed"
             exit 1
           fi
@@ -92,3 +92,79 @@ jobs:
           DB_CONNECTION: sqlite
           DB_DATABASE: ':memory:'
         run: php artisan test
+
+  # ---------------------------------------------------------------------------
+  # SvelteKit Web — install, prettier+eslint, svelte-check, vitest, build
+  # ---------------------------------------------------------------------------
+  web:
+    name: Web (SvelteKit)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: apps/web/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci --include=dev
+
+      - name: Provision .env for build (PUBLIC_API_BASE_URL etc.)
+        run: cp .env.example .env
+
+      - name: Lint (prettier + eslint)
+        run: npm run lint
+
+      - name: Type check (svelte-check)
+        run: npm run check
+
+      - name: Unit tests (vitest)
+        run: npm run test
+
+      - name: Production build (adapter-node)
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Python Worker — uv sync, ruff, mypy, pytest
+  # ---------------------------------------------------------------------------
+  worker:
+    name: Worker (Python)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/worker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: '0.11.16'
+          enable-cache: true
+          cache-dependency-glob: apps/worker/uv.lock
+
+      - name: Sync dependencies (frozen)
+        run: uv sync --frozen
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+      - name: mypy strict
+        run: uv run mypy app
+
+      - name: pytest
+        run: uv run pytest -ra

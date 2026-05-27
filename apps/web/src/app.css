@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+@import './lib/design-tokens.css';
+
+/* Apply design tokens to the body baseline. Tailwind utilities layer on top. */
+body {
+	background: var(--color-surface-0);
+	color: var(--color-text-primary);
+	font-family: var(--font-sans);
+}
