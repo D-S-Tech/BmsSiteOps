@@ -1,0 +1,3 @@
+# Keeps tests/Unit/ in git so PHPUnit's <testsuite name="Unit"> directive
+# can resolve the directory even before any unit tests are written.
+# Delete this file when the first real unit test lands.
