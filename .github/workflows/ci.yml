@@ -7,11 +7,9 @@ on:
     branches: [main]
 
 jobs:
-  # The real per-app jobs (lint + test for api, web, worker) land in Sprint 0
-  # Days 3 and 4 when the apps themselves are scaffolded. This Day 1 placeholder
-  # job runs on every PR to verify CI itself is wired up and to enforce the
-  # repository-wide rules below.
-
+  # ---------------------------------------------------------------------------
+  # Repo hygiene — runs on every PR regardless of which app changed
+  # ---------------------------------------------------------------------------
   repo-hygiene:
     name: Repo hygiene
     runs-on: ubuntu-latest
@@ -39,3 +37,48 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: false
+
+  # ---------------------------------------------------------------------------
+  # Laravel API — install, lint with Pint, run the test suite
+  # ---------------------------------------------------------------------------
+  api:
+    name: API (Laravel)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_pgsql, pdo_sqlite, redis, gd, intl, bcmath, mbstring, zip, pcntl
+          tools: composer:v2
+          coverage: none
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/composer
+          key: composer-${{ runner.os }}-${{ hashFiles('apps/api/composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Copy environment file
+        run: cp ../../.env.example .env && echo "APP_KEY=" >> .env
+
+      - name: Generate application key
+        run: php artisan key:generate
+
+      - name: Run Laravel Pint (formatter)
+        run: ./vendor/bin/pint --test
+
+      - name: Run test suite
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+        run: php artisan test --no-tty

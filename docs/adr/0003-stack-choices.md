@@ -11,27 +11,36 @@ The maintainer (Denny Pjevalica) has substantial production experience with Lara
 
 ## Decision
 
-| Layer            | Choice                              |
-|------------------|-------------------------------------|
-| Backend          | Laravel 11 (PHP 8.3)                |
-| Admin panel      | Filament 3                          |
-| Auth             | Laravel Sanctum (token + session)   |
-| Queues           | Laravel Horizon on Redis            |
-| Frontend         | SvelteKit 5 + TypeScript            |
-| Worker           | Python 3.12 + FastAPI               |
-| Datastore        | PostgreSQL 16 (TimescaleDB later — see ADR 0006, future) |
-| Cache / queue / pubsub | Redis 7                       |
-| Search           | Meilisearch                         |
-| AI router        | LiteLLM                             |
+| Layer            | Choice                                       |
+|------------------|----------------------------------------------|
+| Backend          | Laravel 13 (PHP 8.3)                         |
+| Admin panel      | Filament 5                                   |
+| Auth             | Laravel Sanctum (token + session)            |
+| Queues           | Laravel Horizon on Redis                     |
+| Testing          | PHPUnit 12 + Laravel Pao (Laravel's default) |
+| Frontend         | SvelteKit 5 + TypeScript                     |
+| Worker           | Python 3.12 + FastAPI                        |
+| Datastore        | PostgreSQL 16 (TimescaleDB later — see future ADR) |
+| Cache / queue / pubsub | Redis 7                                |
+| Search           | Meilisearch                                  |
+| AI router        | LiteLLM                                      |
 | AI models        | Claude (hosted) + Qwen 2.5 Coder (local via Ollama) |
-| Reverse proxy    | Caddy 2                             |
-| Runtime          | Docker + Docker Compose             |
+| Reverse proxy    | Caddy 2                                      |
+| Runtime          | Docker + Docker Compose                      |
+
+(Initial scaffolding in Sprint 0 Day 3 landed on Laravel 13.12 and Filament 5.6, which were the current stable releases. The version numbers in this table track the major versions; minor/patch updates do not require a new ADR.)
 
 ## Consequences
 
-**Backend (Laravel 11 + Filament 3)**
+**Backend (Laravel 13 + Filament 5)**
 
-The maintainer already operates Laravel applications in production (MEPSub, BMCE Submittal Builder, NovelPress, Balkan Radio). Filament 3 is a production-grade admin panel built on Laravel, capable of replacing 80% of the CRUD work that would otherwise consume frontend engineering hours. Sanctum's token mode is a well-understood pairing with SPA frontends. Horizon gives a credible queue dashboard out of the box.
+The maintainer already operates Laravel applications in production (MEPSub, BMCE Submittal Builder, NovelPress, Balkan Radio). Filament 5 is a production-grade admin panel built on Laravel, capable of replacing 80% of the CRUD work that would otherwise consume frontend engineering hours. Sanctum's token mode is a well-understood pairing with SPA frontends. Horizon gives a credible queue dashboard out of the box.
+
+Laravel 13's attribute-based model configuration (`#[Fillable]`, `#[Hidden]`) replaces the older property-based syntax, but is otherwise a transparent evolution from 11/12.
+
+**Testing (PHPUnit + Pao)**
+
+Laravel 13 ships with `laravel/pao` as the default agent-optimized testing tool. Pao wraps PHPUnit/Pest output so that AI agents reading test results get structured, parseable information. Pest 4 currently conflicts with Pao in the Laravel 13 release, so the project uses PHPUnit 12 directly (which Pao supports). If a future Pest version regains compatibility with Pao, switching is a one-package swap.
 
 **Frontend (SvelteKit 5)**
 
@@ -64,11 +73,13 @@ The deployment target is a single LXC container on Virtualizor for the first yea
 ## Alternatives considered
 
 - **NestJS + Next.js** — Full TypeScript stack would simplify cross-cutting concerns, but the worker work is dominated by Python libraries and the maintainer's Laravel productivity advantage is too large to discard.
-- **Django + Vue** — Reasonable but the Filament 3 admin panel has no equivalent in Django, and replicating it would be significant work.
+- **Django + Vue** — Reasonable but the Filament 5 admin panel has no equivalent in Django, and replicating it would be significant work.
 - **All-Python (FastAPI + HTMX or similar)** — Tempting for stack homogeneity but loses Laravel's mature admin tooling.
 - **MariaDB / MySQL** instead of Postgres — PostgreSQL's JSON support, partial indexes, and TimescaleDB upgrade path are decisive for time-series data.
+- **Pest** as the test runner — Laravel 13's default `laravel/pao` package currently conflicts with Pest 4.x. We use PHPUnit 12 (which Pao supports) until that is resolved.
 
 ## See also
 
 - [ADR 0001 — Monorepo](./0001-monorepo.md)
 - [ADR 0002 — Multi-tenancy: row-level](./0002-multi-tenancy-row-level.md)
+- [ADR 0006 — Containerization patterns](./0006-containerization-patterns.md)
