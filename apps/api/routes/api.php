@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\SiteController;
+use App\Http\Controllers\Api\SiteDashboardController;
 use App\Http\Controllers\Api\SourceController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -31,6 +32,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->gr
     // Sites — read-only for now (created via admin / seeders)
     Route::get('sites', [SiteController::class, 'index'])->name('sites.index');
     Route::get('sites/{site}', [SiteController::class, 'show'])->name('sites.show');
+
+    // Site dashboard aggregations (Sprint 3)
+    Route::get('sites/{site}/summary', [SiteDashboardController::class, 'summary'])->name('sites.summary');
+    Route::get('sites/{site}/timeline', [SiteDashboardController::class, 'timeline'])->name('sites.timeline');
 
     // Sources — full CRUD
     Route::apiResource('sources', SourceController::class);
