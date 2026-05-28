@@ -95,11 +95,81 @@ async def test_custom_points_href_is_used() -> None:
     assert route.called
 
 
-async def test_non_obix_transport_raises_not_implemented_on_discover() -> None:
+async def test_rest_transport_raises_not_implemented_on_discover() -> None:
     with pytest.raises(NotImplementedError):
-        await NiagaraCollector(_config(transport="fox")).discover()
+        await NiagaraCollector(_config(transport="rest")).discover()
 
 
-async def test_non_obix_transport_raises_not_implemented_on_poll() -> None:
+async def test_rest_transport_raises_not_implemented_on_poll() -> None:
     with pytest.raises(NotImplementedError):
         _ = [e async for e in NiagaraCollector(_config(transport="rest")).poll()]
+
+
+# --- Fox transport (mapping via fake; live session is experimental) ----------
+
+from app.clients.fox import FoxPoint, FoxTransport  # noqa: E402
+
+
+class FakeFoxTransport(FoxTransport):
+    """In-memory FoxTransport returning canned points."""
+
+    def __init__(self, points: list[FoxPoint]) -> None:
+        self._points = points
+        self.closed = False
+
+    async def read_points(self) -> list[FoxPoint]:
+        return self._points
+
+    async def close(self) -> None:
+        self.closed = True
+
+
+def _fox_points() -> list[FoxPoint]:
+    return [
+        FoxPoint(
+            handle="slot:/Drivers/Temp", name="Zone Temp", value=72.5, status="ok", units="°F"
+        ),
+        FoxPoint(handle="slot:/Drivers/Press", name="Duct Press", value=3.2, status="alarm"),
+        FoxPoint(handle="slot:/Drivers/Dead", name="Dead Pt", value=0.0, status="down"),
+    ]
+
+
+async def test_fox_discover_maps_points_to_devices() -> None:
+    collector = NiagaraCollector(
+        _config(transport="fox"), fox_transport=FakeFoxTransport(_fox_points())
+    )
+
+    devices = await collector.discover()
+
+    assert len(devices) == 3
+    by_id = {d["external_id"]: d for d in devices}
+    assert by_id["slot:/Drivers/Temp"]["name"] == "Zone Temp"
+    assert by_id["slot:/Drivers/Temp"]["type"] == "point"
+    assert by_id["slot:/Drivers/Temp"]["status"] == "online"
+    # 'down' status -> offline
+    assert by_id["slot:/Drivers/Dead"]["status"] == "offline"
+    # 'alarm' is still online (alarm != down)
+    assert by_id["slot:/Drivers/Press"]["status"] == "online"
+
+
+async def test_fox_poll_maps_points_to_events_with_severity() -> None:
+    collector = NiagaraCollector(
+        _config(transport="fox"), fox_transport=FakeFoxTransport(_fox_points())
+    )
+
+    events = [e async for e in collector.poll()]
+
+    assert len(events) == 3
+    by_dev = {e.device_external_id: e for e in events}
+    assert by_dev["slot:/Drivers/Temp"].severity is None
+    assert by_dev["slot:/Drivers/Temp"].value == 72.5
+    assert by_dev["slot:/Drivers/Temp"].kind == CollectorKind.NIAGARA
+    # alarm -> critical
+    assert by_dev["slot:/Drivers/Press"].severity == "critical"
+
+
+async def test_fox_without_transport_raises_experimental() -> None:
+    # No injected transport -> builds the real FoxClient, whose live session
+    # is experimental and raises NotImplementedError.
+    with pytest.raises(NotImplementedError):
+        await NiagaraCollector(_config(transport="fox")).discover()
