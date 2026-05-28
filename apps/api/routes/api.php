@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\DeviceMuteController;
+use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\ScriptController;
 use App\Http\Controllers\Api\SiteBriefController;
@@ -55,6 +56,12 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->gr
     Route::get('scripts', [ScriptController::class, 'index'])->name('scripts.index');
     Route::post('scripts', [ScriptController::class, 'store'])->name('scripts.store');
     Route::get('scripts/{script}', [ScriptController::class, 'show'])->name('scripts.show');
+
+    // Documents (Sprint 7) — knowledge base for RAG / Site Q&A
+    Route::get('documents', [DocumentController::class, 'index'])->name('documents.index');
+    Route::post('documents', [DocumentController::class, 'store'])->name('documents.store');
+    Route::get('documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
+    Route::delete('documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
 
     // Sources — full CRUD
     Route::apiResource('sources', SourceController::class);

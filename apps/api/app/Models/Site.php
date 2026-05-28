@@ -63,4 +63,9 @@ class Site extends Model
     {
         return $this->hasMany(TriageDecision::class);
     }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(Document::class);
+    }
 }
