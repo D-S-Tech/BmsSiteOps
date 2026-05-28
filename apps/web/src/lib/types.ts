@@ -136,3 +136,39 @@ export interface Paginated<T> {
 		next: string | null;
 	};
 }
+
+/**
+ * Aggregated per-site dashboard summary (GET /sites/{id}/summary).
+ */
+export interface SiteSummary {
+	site: Site;
+	devices: { total: number; online: number; offline: number; unknown: number };
+	sources: { total: number; ok: number; error: number; never: number };
+	events_24h: {
+		total: number;
+		critical: number;
+		warning: number;
+		info: number;
+		none: number;
+	};
+	recent_events: Event[];
+}
+
+export interface TimelineBucket {
+	t: string;
+	critical: number;
+	warning: number;
+	info: number;
+	none: number;
+	total: number;
+}
+
+/**
+ * Hourly event timeline for a site (GET /sites/{id}/timeline).
+ */
+export interface SiteTimeline {
+	bucket: string;
+	from: string;
+	to: string;
+	buckets: TimelineBucket[];
+}

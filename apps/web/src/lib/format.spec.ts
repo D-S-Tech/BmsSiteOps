@@ -9,8 +9,10 @@ import {
 	formatTimestamp,
 	severityColor,
 	severityWeight,
-	sourceStatusColor
+	sourceStatusColor,
+	timelineMax
 } from './format';
+import type { TimelineBucket } from './types';
 
 describe('deviceStatusColor', () => {
 	test('online is ok-colored', () => {
@@ -68,5 +70,25 @@ describe('formatTimestamp', () => {
 	});
 	test('valid ISO -> compact UTC', () => {
 		expect(formatTimestamp('2026-05-27T12:34:56Z')).toBe('2026-05-27 12:34 UTC');
+	});
+});
+
+describe('timelineMax', () => {
+	const bucket = (total: number): TimelineBucket => ({
+		t: '2026-05-28T00:00:00Z',
+		critical: 0,
+		warning: 0,
+		info: 0,
+		none: 0,
+		total
+	});
+
+	test('returns the largest total', () => {
+		expect(timelineMax([bucket(3), bucket(7), bucket(1)])).toBe(7);
+	});
+
+	test('never returns less than 1 (avoids divide-by-zero)', () => {
+		expect(timelineMax([])).toBe(1);
+		expect(timelineMax([bucket(0), bucket(0)])).toBe(1);
 	});
 });

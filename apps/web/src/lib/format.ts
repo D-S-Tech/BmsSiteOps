@@ -6,7 +6,7 @@
  * components.
  */
 
-import type { DeviceStatus, EventSeverity, SourceStatus } from '$lib/types';
+import type { DeviceStatus, EventSeverity, SourceStatus, TimelineBucket } from '$lib/types';
 
 /** CSS custom-property name carrying the semantic color for a UI state. */
 export type StatusColorVar =
@@ -82,4 +82,9 @@ export function formatTimestamp(iso: string | null): string {
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) return '—';
 	return d.toISOString().slice(0, 16).replace('T', ' ') + ' UTC';
+}
+
+/** Largest bucket total in a timeline, for scaling bar heights (min 1). */
+export function timelineMax(buckets: TimelineBucket[]): number {
+	return Math.max(1, ...buckets.map((b) => b.total));
 }
