@@ -214,3 +214,31 @@ export interface TriageDecision {
 		action: string;
 	};
 }
+
+/**
+ * An AI-generated script request (POST/GET /api/v1/scripts).
+ *
+ * Lifecycle: requested -> generating -> ready | failed.
+ * is_pending is true for {requested, generating}; clients should poll while
+ * is_pending=true.
+ */
+export interface Script {
+	id: number;
+	title: string;
+	prompt: string;
+	language: string;
+	language_label: string;
+	highlight_hint: string;
+	status: 'requested' | 'generating' | 'ready' | 'failed';
+	status_label: string;
+	is_pending: boolean;
+	content: string | null;
+	model: string | null;
+	error: string | null;
+	metadata: Record<string, unknown> | null;
+	requested_at: string | null;
+	claimed_at: string | null;
+	generated_at: string | null;
+	created_at: string | null;
+	updated_at: string | null;
+}

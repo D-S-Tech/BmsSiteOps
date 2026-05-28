@@ -14,6 +14,7 @@ import type {
 	SiteBrief,
 	SiteSummary,
 	SiteTimeline,
+	Script,
 	Source,
 	TriageDecision
 } from '$lib/types';
@@ -42,6 +43,13 @@ export const registry = {
 	getLatestBrief: (id: number) => api.get<{ data: SiteBrief }>(`/sites/${id}/briefs/latest`),
 	listTriageDecisions: (id: number, opts: { per_page?: number } = {}) =>
 		api.get<Paginated<TriageDecision>>(`/sites/${id}/triage-decisions${query(opts)}`),
+
+	// Scripts (Sprint 6)
+	listScripts: (opts: { per_page?: number } = {}) =>
+		api.get<Paginated<Script>>(`/scripts${query(opts)}`),
+	getScript: (id: number) => api.get<{ data: Script }>(`/scripts/${id}`),
+	createScript: (payload: { title: string; prompt: string; language: string }) =>
+		api.post<{ data: Script }>('/scripts', payload),
 
 	listSources: (
 		opts: { site_id?: number; kind?: string; is_active?: boolean; per_page?: number } = {}
