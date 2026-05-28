@@ -48,6 +48,7 @@ return [
     */
 
     'worker' => [
+        'url' => env('WORKER_URL', 'http://localhost:8001'),
         'internal_key' => env('WORKER_INTERNAL_KEY'),
         // Reject worker requests whose timestamp drifts more than this many
         // seconds from server time (replay-attack protection).

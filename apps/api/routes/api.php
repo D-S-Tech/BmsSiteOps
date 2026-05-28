@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\DeviceMuteController;
 use App\Http\Controllers\Api\DocumentController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\QaController;
 use App\Http\Controllers\Api\ScriptController;
 use App\Http\Controllers\Api\SiteBriefController;
 use App\Http\Controllers\Api\SiteController;
@@ -62,6 +63,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->gr
     Route::post('documents', [DocumentController::class, 'store'])->name('documents.store');
     Route::get('documents/{document}', [DocumentController::class, 'show'])->name('documents.show');
     Route::delete('documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+
+    // Site Q&A (Sprint 7.3) — RAG over the knowledge base.
+    Route::get('qa', [QaController::class, 'index'])->name('qa.index');
+    Route::post('qa', [QaController::class, 'store'])->name('qa.store');
+    Route::get('qa/{question}', [QaController::class, 'show'])->name('qa.show');
 
     // Sources — full CRUD
     Route::apiResource('sources', SourceController::class);
