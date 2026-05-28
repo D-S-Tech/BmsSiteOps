@@ -58,4 +58,9 @@ class Site extends Model
     {
         return $this->hasMany(SiteBrief::class);
     }
+
+    public function triageDecisions(): HasMany
+    {
+        return $this->hasMany(TriageDecision::class);
+    }
 }

@@ -9,6 +9,8 @@ use App\Http\Controllers\Api\SiteBriefController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\SiteDashboardController;
 use App\Http\Controllers\Api\SourceController;
+use App\Http\Controllers\Api\TriageDecisionController;
+use App\Http\Controllers\Api\TriageRuleController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +44,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->gr
     // AI Site Briefs (Sprint 4) — 'latest' before the index path.
     Route::get('sites/{site}/briefs/latest', [SiteBriefController::class, 'latest'])->name('sites.briefs.latest');
     Route::get('sites/{site}/briefs', [SiteBriefController::class, 'index'])->name('sites.briefs.index');
+
+    // Triage (Sprint 5) — rules + per-site decision audit log
+    Route::get('triage-rules', [TriageRuleController::class, 'index'])->name('triage-rules.index');
+    Route::get('triage-rules/{rule}', [TriageRuleController::class, 'show'])->name('triage-rules.show');
+    Route::get('sites/{site}/triage-decisions', [TriageDecisionController::class, 'index'])->name('sites.triage-decisions.index');
 
     // Sources — full CRUD
     Route::apiResource('sources', SourceController::class);
