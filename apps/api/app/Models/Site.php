@@ -9,6 +9,7 @@ use Database\Factories\SiteFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * A site is a single commercial building or campus that BmsSiteOps monitors.
@@ -36,5 +37,20 @@ class Site extends Model
         return [
             'metadata' => 'array',
         ];
+    }
+
+    public function sources(): HasMany
+    {
+        return $this->hasMany(Source::class);
+    }
+
+    public function devices(): HasMany
+    {
+        return $this->hasMany(Device::class);
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(Event::class);
     }
 }
