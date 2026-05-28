@@ -15,13 +15,12 @@ sent as:
 
 from __future__ import annotations
 
-import hashlib
-import hmac
 import json
-import time
 from typing import Any
 
 import httpx
+
+from app.clients.signing import signed_headers
 
 
 class IngestClient:
@@ -41,17 +40,7 @@ class IngestClient:
         self._client = client
 
     def _sign(self, body: str) -> dict[str, str]:
-        timestamp = str(int(time.time()))
-        signature = hmac.new(
-            self._internal_key.encode(),
-            f"{timestamp}.{body}".encode(),
-            hashlib.sha256,
-        ).hexdigest()
-        return {
-            "X-Worker-Timestamp": timestamp,
-            "X-Worker-Signature": signature,
-            "Content-Type": "application/json",
-        }
+        return signed_headers(self._internal_key, body)
 
     def _make_client(self) -> httpx.AsyncClient:
         if self._client is not None:
