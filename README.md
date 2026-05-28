@@ -280,7 +280,7 @@ BmsSiteOps/
 <tr><th width="80">Sprint</th><th width="120">Status</th><th>Deliverable</th></tr>
 </thead>
 <tbody>
-<tr><td><b>0</b></td><td>🟢 90% done</td><td>Repo scaffolding · multi-tenancy infrastructure · Docker Compose · CI · SvelteKit + Python worker scaffolds · LXC deployment (Day 5)</td></tr>
+<tr><td><b>0</b></td><td>🟢 95% done</td><td>Repo scaffolding · multi-tenancy infrastructure · Docker Compose · CI · SvelteKit + Python worker scaffolds · deployment-as-code (scripts + runbook). Only live provisioning remains.</td></tr>
 <tr><td><b>1</b></td><td>⏳ Next</td><td>TRMM Collector · unified devices registry · first end-to-end ingestion</td></tr>
 <tr><td><b>2</b></td><td>⏳ Planned</td><td>Niagara Fox collector · mock Fox server for testing · station-level health</td></tr>
 <tr><td><b>3</b></td><td>⏳ Planned</td><td>TimescaleDB migration · SvelteKit site dashboard · operator workflows</td></tr>
@@ -297,7 +297,8 @@ BmsSiteOps/
 - [x] Day 2 — Docker Compose stack (postgres, redis, meilisearch, caddy, api, web, worker) ([`8f3e95f`](https://github.com/D-S-Tech/BmsSiteOps/commit/8f3e95f))
 - [x] Day 3 — Laravel 13 + Filament 5 + multi-tenancy + 6 tenant-isolation tests ([`0889f43`](https://github.com/D-S-Tech/BmsSiteOps/commit/0889f43))
 - [x] Day 4 — SvelteKit 5 frontend + Python worker scaffolds + collectors ABC ([`6cb81e5`](https://github.com/D-S-Tech/BmsSiteOps/commit/6cb81e5))
-- [ ] Day 5 — Virtualizor LXC provisioning · DNS · production `make prod-up`
+- [x] Day 5a — Deployment-as-code: `bootstrap-server.sh`, `deploy.sh`, `DEPLOYMENT.md`, ADR 0007, prod env template ([deploy docs](docs/DEPLOYMENT.md))
+- [ ] Day 5b — Live provisioning: LXC + DNS + first `make prod-up` _(operator step)_
 
 ---
 
@@ -376,6 +377,7 @@ Every non-trivial design choice is recorded in [`docs/adr/`](docs/adr/):
 | [0004](docs/adr/0004-public-repo-security.md) | Public repo security posture |
 | [0005](docs/adr/0005-license-agpl.md) | License: AGPL-3.0 |
 | [0006](docs/adr/0006-containerization-patterns.md) | Caddy + PHP-FPM via FastCGI · adapter-node SSR · uv for Python |
+| [0007](docs/adr/0007-deployment-topology.md) | Deployment topology: single LXC + Docker Compose + git-pull deploy |
 
 ---
 

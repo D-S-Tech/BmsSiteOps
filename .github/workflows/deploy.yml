@@ -1,0 +1,62 @@
+# =============================================================================
+# BmsSiteOps — production deploy (manual trigger)
+# =============================================================================
+# Deploys the current main branch to the production host over SSH by running
+# infra/scripts/deploy.sh there.
+#
+# DISABLED BY DEFAULT: this workflow only runs when triggered manually from the
+# Actions tab (workflow_dispatch). It never fires automatically on push, so a
+# bad commit cannot auto-deploy to production.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_SSH_HOST        production host IP or DNS name
+#   DEPLOY_SSH_USER        deploy user (e.g. "deploy")
+#   DEPLOY_SSH_PORT        SSH port (e.g. "22")
+#   DEPLOY_SSH_KEY         private SSH key with access to the deploy user
+#   DEPLOY_PATH            absolute path to the repo on the host (e.g. /home/deploy/BmsSiteOps)
+#
+# Nothing about the production environment is hardcoded here — every value
+# comes from secrets, so this file is safe in a public repository.
+# =============================================================================
+
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to deploy (branch, tag, or SHA)'
+        required: false
+        default: 'main'
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    environment: production       # enables required-reviewer protection if configured
+    steps:
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${{ secrets.DEPLOY_SSH_PORT }}" -H \
+            "${{ secrets.DEPLOY_SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Run deploy script on host
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -p "${{ secrets.DEPLOY_SSH_PORT }}" \
+              "${{ secrets.DEPLOY_SSH_USER }}@${{ secrets.DEPLOY_SSH_HOST }}" \
+              "cd '${{ secrets.DEPLOY_PATH }}' && \
+               git fetch --all --prune && \
+               git checkout '${{ github.event.inputs.ref }}' && \
+               ./infra/scripts/deploy.sh"
+
+      - name: Clean up SSH key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
