@@ -277,7 +277,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 7 complete — Site Q&A with RAG + MCP server. Operators upload documents (chunked at create time), the worker embeds chunks via Ollama nomic-embed-text, and POST /api/v1/qa runs the full pipeline synchronously: embed question -> VectorSearch.topK over chunks -> LLM-grounded answer with structured citations. Worker exposes /qa/embed + /qa/answer behind HMAC; an MCP server (4 tools: ask, list_sites, site_overview, create_script) is mounted on the worker's FastAPI app for Claude Desktop / Claude Code. 376 tests green.**
+> **Status (May 2026): Sprint 7 closed the original 8-step roadmap (Sprints 0-7). Site Q&A is end to end — documents chunked at create time, embedded by the worker via Ollama nomic-embed-text, retrieved via PHP cosine similarity, answered by the LLM with structured citations. Worker exposes HMAC-gated /qa endpoints + an MCP server with four tools (ask / list_sites / site_overview / create_script). 376 tests green across api/web/worker. Sprint 8 now extends the platform from 'works in tests' to 'works in production': docker-compose.prod.yml stack, LiteLLM proxy config wired to the live BOLDNJPC Ollama + Anthropic, integration test harness gated on LIVE_TESTS=1, pgvector + TimescaleDB conditional migrations, and a `make smoke-test` validator.**
 
 <table>
 <thead>
@@ -292,6 +292,7 @@ BmsSiteOps/
 <tr><td><b>5</b></td><td>🟢 Done</td><td>Alert Triage end to end — rule matcher · in-line action execution from ingestion (mute / mark / ignore) · Filament CRUD · worker remediation seam (TRMM agent restart, foundation only)</td></tr>
 <tr><td><b>6</b></td><td>🟢 Done</td><td>AI Script Authoring end to end — request → claim → generate (Ollama / Qwen 2.5 Coder via the existing LiteLLM seam) → submit; Filament audit + SvelteKit /scripts routes with polling</td></tr>
 <tr><td><b>7</b></td><td>🟢 Done</td><td>Site Q&A end to end — documents + chunks data model · embedding pipeline (worker EmbeddingClient seam + EmbeddingsClient + EmbeddingRunner) · VectorSearch + QaService + public POST /api/v1/qa · worker /qa/embed + /qa/answer behind HMAC · MCP server (4 tools) on SSE at <code>ops-mcp.bmssiteops.com/sse</code> · SvelteKit /qa with citations</td></tr>
+<tr><td><b>8</b></td><td>⏳ In progress</td><td>Production deployment &amp; live AI validation — <code>docker-compose.prod.yml</code> + Caddy reverse proxy · production Dockerfiles for api/web/worker · LiteLLM proxy config (Ollama + Anthropic) · live integration test harness gated on <code>LIVE_TESTS=1</code> · pgvector + TimescaleDB conditional migrations · <code>make smoke-test</code> end-to-end validator</td></tr>
 </tbody>
 </table>
 
