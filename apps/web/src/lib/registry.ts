@@ -14,6 +14,7 @@ import type {
 	SiteBrief,
 	SiteSummary,
 	SiteTimeline,
+	Question,
 	Script,
 	Source,
 	TriageDecision
@@ -50,6 +51,13 @@ export const registry = {
 	getScript: (id: number) => api.get<{ data: Script }>(`/scripts/${id}`),
 	createScript: (payload: { title: string; prompt: string; language: string }) =>
 		api.post<{ data: Script }>('/scripts', payload),
+
+	// Site Q&A (Sprint 7)
+	listQuestions: (opts: { per_page?: number } = {}) =>
+		api.get<Paginated<Question>>(`/qa${query(opts)}`),
+	getQuestion: (id: number) => api.get<{ data: Question }>(`/qa/${id}`),
+	askQuestion: (payload: { question: string; site_id?: number }) =>
+		api.post<{ data: Question }>('/qa', payload),
 
 	listSources: (
 		opts: { site_id?: number; kind?: string; is_active?: boolean; per_page?: number } = {}

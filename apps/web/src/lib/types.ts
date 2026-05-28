@@ -242,3 +242,36 @@ export interface Script {
 	created_at: string | null;
 	updated_at: string | null;
 }
+
+/**
+ * A citation referenced from a Q&A answer.
+ */
+export interface Citation {
+	chunk_id: number;
+	document_id: number;
+	document_title: string | null;
+	score: number;
+}
+
+/**
+ * A Site Q&A question + its answer (POST/GET /api/v1/qa).
+ *
+ * Processing is synchronous from the operator's perspective: by the time
+ * POST /api/v1/qa returns, the row is already Ready or Failed.
+ */
+export interface Question {
+	id: number;
+	site_id: number | null;
+	question: string;
+	answer: string | null;
+	status: 'pending' | 'ready' | 'failed';
+	status_label: string;
+	error: string | null;
+	model: string | null;
+	citations: Citation[];
+	metadata: Record<string, unknown> | null;
+	asked_at: string | null;
+	answered_at: string | null;
+	created_at: string | null;
+	updated_at: string | null;
+}

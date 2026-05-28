@@ -19,6 +19,7 @@
 				<a href="/sites">Sites</a>
 				<a href="/alerts">Alerts</a>
 				<a href="/scripts">Scripts</a>
+				<a href="/qa">Q&amp;A</a>
 			</nav>
 		</div>
 	</header>

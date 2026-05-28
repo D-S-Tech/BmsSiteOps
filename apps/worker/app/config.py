@@ -26,6 +26,27 @@ class Settings(BaseSettings):
         description="HMAC secret shared with the Laravel API for internal calls.",
     )
 
+    worker_max_clock_skew: int = Field(
+        default=300,
+        description=(
+            "Reject inbound Laravel -> worker HMAC requests whose timestamp "
+            "drifts more than this many seconds from worker time (replay window)."
+        ),
+    )
+
+    # Laravel public API base URL — used by the MCP server's LaravelClient.
+    laravel_api_url: str = Field(
+        default="http://localhost:8000",
+        description="Base URL of the Laravel API (without /api/v1).",
+    )
+
+    # MCP API token — a Sanctum personal access token (NOT the HMAC key) the
+    # MCP server uses to call the Laravel public API on a real user's behalf.
+    mcp_api_token: SecretStr = Field(
+        default=SecretStr(""),
+        description="Sanctum bearer token used by the MCP server.",
+    )
+
     # --- Database ---
     db_host: str = Field(default="postgres")
     db_port: int = Field(default=5432)

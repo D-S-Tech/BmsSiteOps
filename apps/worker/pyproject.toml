@@ -16,6 +16,7 @@ dependencies = [
     "anthropic>=0.40,<1.0",
     "structlog>=24.4,<26.0",
     "bacpypes3>=0.0.98,<1.0",
+    "mcp>=1.0,<2.0",
 ]
 
 [dependency-groups]

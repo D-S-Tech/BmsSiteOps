@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-265%2F265-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-376%2F376-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -246,11 +246,11 @@ BmsSiteOps/
 │   ├── api/                     Laravel 13 + Filament 5 + Sanctum + Horizon
 │   │   ├── app/Models/          Tenant, Site, User, Source, Device, Event
 │   │   ├── app/Support/         CurrentTenant context, TenantScope
-│   │   └── tests/Feature/       Registry · API · dashboard · brief · triage · scripts tests (128/128 ✅)
+│   │   └── tests/Feature/       Registry · API · dashboard · brief · triage · scripts · RAG · QA tests (189/189 ✅)
 │   │
 │   ├── web/                     SvelteKit 5 + TypeScript + Tailwind 4
 │   │   ├── src/lib/             API + registry clients · format helpers · auth
-│   │   └── src/routes/          sites · devices · dashboard · scripts (list / new / detail polling)
+│   │   └── src/routes/          sites · devices · dashboard · scripts · qa (ask form + history + citations)
 │   │
 │   └── worker/                  Python 3.12 + FastAPI + uv
 │       ├── app/main.py          FastAPI app + /health
@@ -259,7 +259,7 @@ BmsSiteOps/
 │       ├── app/remediation/     Remediation seam · TRMM transport · dispatcher
 │       ├── app/clients/         TRMM/oBIX clients · HMAC ingest + brief clients
 │       ├── app/runner.py        SyncRunner — collector → API
-│       └── tests/               pytest suite (115/115 ✅)
+│       └── tests/               pytest suite (165/165 ✅) — includes QA endpoints + MCP tools
 │
 ├── infra/
 │   ├── docker/                  Per-app Dockerfiles (multi-stage)
@@ -277,7 +277,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 6 complete — AI Script Authoring end to end: operators request a script from the web, the worker claims it from the queue and runs it through the local Ollama-backed Qwen 2.5 Coder via the same LiteLLM seam that powers the AI Site Brief, then submits the result back over HMAC; SvelteKit polls until ready. 265 tests green.**
+> **Status (May 2026): Sprint 7 complete — Site Q&A with RAG + MCP server. Operators upload documents (chunked at create time), the worker embeds chunks via Ollama nomic-embed-text, and POST /api/v1/qa runs the full pipeline synchronously: embed question -> VectorSearch.topK over chunks -> LLM-grounded answer with structured citations. Worker exposes /qa/embed + /qa/answer behind HMAC; an MCP server (4 tools: ask, list_sites, site_overview, create_script) is mounted on the worker's FastAPI app for Claude Desktop / Claude Code. 376 tests green.**
 
 <table>
 <thead>
@@ -291,7 +291,7 @@ BmsSiteOps/
 <tr><td><b>4</b></td><td>🟢 Done</td><td>AI Site Brief end to end — LiteLLM LLM seam · context → generate → store over HMAC · dashboard renders the latest brief</td></tr>
 <tr><td><b>5</b></td><td>🟢 Done</td><td>Alert Triage end to end — rule matcher · in-line action execution from ingestion (mute / mark / ignore) · Filament CRUD · worker remediation seam (TRMM agent restart, foundation only)</td></tr>
 <tr><td><b>6</b></td><td>🟢 Done</td><td>AI Script Authoring end to end — request → claim → generate (Ollama / Qwen 2.5 Coder via the existing LiteLLM seam) → submit; Filament audit + SvelteKit /scripts routes with polling</td></tr>
-<tr><td><b>7</b></td><td>⏳ Next</td><td>Site Q&A · RAG over telemetry + documents · MCP endpoint at <code>ops-mcp.bmssiteops.com/sse</code></td></tr>
+<tr><td><b>7</b></td><td>🟢 Done</td><td>Site Q&A end to end — documents + chunks data model · embedding pipeline (worker EmbeddingClient seam + EmbeddingsClient + EmbeddingRunner) · VectorSearch + QaService + public POST /api/v1/qa · worker /qa/embed + /qa/answer behind HMAC · MCP server (4 tools) on SSE at <code>ops-mcp.bmssiteops.com/sse</code> · SvelteKit /qa with citations</td></tr>
 </tbody>
 </table>
 
@@ -355,16 +355,29 @@ BmsSiteOps/
 
 > **Ollama-integration note:** the script generator uses the same `LLMClient` seam built in Sprint 4 — switching from Anthropic (briefs) to local Ollama (scripts) is a `model` config change (`ollama/qwen2.5-coder:32b`), not a code change. LiteLLM proxy routes the prefix to the Ollama backend. Prompt building, fence stripping, and the runner's claim/generate/submit flow are unit-tested with a `FakeLLMClient`; the live Qwen 2.5 Coder inference call against a running Ollama is integration-only and not in CI — same posture as the LiteLLM, TRMM, and TimescaleDB notes above.
 
+### Sprint 7 detail
+
+- [x] 7.1 — Laravel RAG core: `documents` (longtext content) + `document_chunks` (tenant-scoped, position, JSON-serialized embedding for SQLite/PG portability) tables · `DocumentStatus` enum (pending → embedding → ready/failed) · pure `DocumentChunker` (two-phase: paragraphs into blocks + sliding-window hard-split on oversize, then packing) · public CRUD endpoints (POST chunks-on-create, GET with chunks_count, DELETE cascades) (152 api tests) ([`7923d4d`](https://github.com/D-S-Tech/BmsSiteOps/commit/7923d4d))
+- [x] 7.2 — Embedding pipeline: Laravel internal HMAC endpoints (claim oldest-pending atomic + submit ready/failed with chunk-id validation + 409 on stale work) · worker `EmbeddingClient` ABC + `FakeEmbeddingClient` (deterministic sha256 vectors) + `LiteLlmEmbeddingClient` (OpenAI-compatible /embeddings) · `EmbeddingsClient` (HMAC pull/push) · `EmbeddingRunner` (claim → batch-embed → submit, with count-mismatch + empty-chunks edge cases) (315 total tests) ([`22094ae`](https://github.com/D-S-Tech/BmsSiteOps/commit/22094ae))
+- [x] 7.3 — Site Q&A Laravel side: pure `cosineSimilarity` + DB-backed `VectorSearch.topK` (tenant-scoped, optional site filter, null-embedding skip, k limit) · `WorkerRagClient` interface + `FakeWorkerRagClient` + `HttpWorkerRagClient` (HMAC outbound to worker) · `QaService` orchestrator (embed → search → answer with no-context short circuit + try/catch that never leaves Pending) · `Question` model + POST/GET /api/v1/qa (synchronous; 5-15s end-to-end) (342 total tests) ([`875049e`](https://github.com/D-S-Tech/BmsSiteOps/commit/875049e))
+- [x] 7.4 — Worker /qa endpoints + SvelteKit /qa + MCP server: inbound HMAC `verify_worker_signature` dependency (timestamp drift + body tampering checks) · `make_qa_router` factory mounting POST /qa/embed + POST /qa/answer (FakeEmbeddingClient + FakeLLMClient injectable for tests) · pure `build_user_prompt` with numbered citations · MCP `LaravelClient` (httpx wrapper around the public API) + `tools.py` (4 tools with JSON Schema definitions + `dispatch_tool` router) + lazy `mcp.server.Server` wiring on SSE transport · SvelteKit `/qa` (inline ask form + history) and `/qa/[id]` (answer + numbered citations linking to documents)
+
+> **RAG-deployment note:** the embedding column on `document_chunks` is stored as TEXT (JSON-serialized floats) so the schema works identically on SQLite (CI) and PostgreSQL (production). A deployment-time optimization on PG is to install pgvector and migrate to `vector(N)`, then swap `VectorSearch::topK`'s in-memory cosine pass for SQL `ORDER BY embedding <-> query LIMIT k`. The public contract of `VectorSearch` is unchanged — same posture as TimescaleDB (ADR 0008).
+
+> **MCP-integration note:** the four MCP tools (`bmssiteops_ask`, `bmssiteops_list_sites`, `bmssiteops_site_overview`, `bmssiteops_create_script`) are fully unit-tested at the dispatch + LaravelClient request-shape layer with respx; the live SSE handshake against Claude Desktop / Claude Code / any MCP client is integration-only and validated by hand — same posture as the LLM, embedding, TRMM, and TimescaleDB notes above. The MCP server is wired conditionally (only when `MCP_API_TOKEN` is set), so a worker without an MCP token starts the QA endpoints but skips the MCP mount.
+
+> **Ollama-embedding note:** the embedding worker uses `ollama/nomic-embed-text` by default — switchable to OpenAI `text-embedding-3-small` or Voyage `voyage-2` via a LiteLLM proxy config change. Request shape (POST /embeddings, model + input array, Bearer auth, index sorting) is respx-tested; the live call against a running LiteLLM proxy with an Ollama-backed embedding model is integration-only.
+
 ---
 
 ## 🧪 Testing & CI
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 128 | ✅ |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 189 | ✅ |
 | `apps/web` (SvelteKit) | Vitest 4 | 22 | ✅ |
-| `apps/worker` (Python) | pytest 8 | 115 | ✅ |
-| **Total** | | **265** | **✅** |
+| `apps/worker` (Python) | pytest 8 | 165 | ✅ |
+| **Total** | | **376** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 
