@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api;
 
+use App\Enums\NiagaraTransport;
 use App\Enums\SourceKind;
 use App\Support\CurrentTenant;
 use Illuminate\Foundation\Http\FormRequest;
@@ -31,6 +32,12 @@ class StoreSourceRequest extends FormRequest
                 Rule::exists('sites', 'id')->where('tenant_id', CurrentTenant::id()),
             ],
             'kind' => ['required', Rule::enum(SourceKind::class)],
+            // Transport is required for Niagara sources, forbidden otherwise.
+            'transport' => [
+                'nullable',
+                Rule::requiredIf(fn () => $this->input('kind') === SourceKind::Niagara->value),
+                Rule::enum(NiagaraTransport::class),
+            ],
             'name' => ['required', 'string', 'max:200'],
             'base_url' => ['nullable', 'url', 'max:500'],
             'credentials' => ['nullable', 'array'],

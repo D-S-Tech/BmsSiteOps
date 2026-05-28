@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\NiagaraTransport;
 use App\Enums\SourceKind;
 use App\Enums\SourceStatus;
 use App\Models\Concerns\BelongsToTenant;
@@ -31,6 +32,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int $site_id
  * @property SourceKind $kind
+ * @property NiagaraTransport|null $transport
  * @property string $name
  * @property string|null $base_url
  * @property array $credentials encrypted at rest
@@ -44,6 +46,7 @@ use Illuminate\Support\Carbon;
 #[Fillable([
     'site_id',
     'kind',
+    'transport',
     'name',
     'base_url',
     'credentials',
@@ -69,6 +72,7 @@ class Source extends Model
     {
         return [
             'kind' => SourceKind::class,
+            'transport' => NiagaraTransport::class,
             'credentials' => 'encrypted:array',
             'poll_interval_seconds' => 'integer',
             'is_active' => 'boolean',

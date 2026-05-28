@@ -26,6 +26,10 @@ class SourcesTable
                 TextColumn::make('kind')
                     ->badge()
                     ->sortable(),
+                TextColumn::make('transport')
+                    ->badge()
+                    ->placeholder('—')
+                    ->toggleable(),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),

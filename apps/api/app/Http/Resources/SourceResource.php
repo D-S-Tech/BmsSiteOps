@@ -27,6 +27,7 @@ class SourceResource extends JsonResource
             'site_id' => $this->site_id,
             'kind' => $this->kind->value,
             'kind_label' => $this->kind->label(),
+            'transport' => $this->transport?->value,
             'name' => $this->name,
             'base_url' => $this->base_url,
             // credentials intentionally omitted — see class docblock.

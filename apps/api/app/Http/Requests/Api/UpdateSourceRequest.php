@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Api;
 
+use App\Enums\NiagaraTransport;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateSourceRequest extends FormRequest
 {
@@ -20,6 +22,7 @@ class UpdateSourceRequest extends FormRequest
     {
         return [
             'name' => ['sometimes', 'string', 'max:200'],
+            'transport' => ['sometimes', 'nullable', Rule::enum(NiagaraTransport::class)],
             'base_url' => ['sometimes', 'nullable', 'url', 'max:500'],
             'credentials' => ['sometimes', 'nullable', 'array'],
             'poll_interval_seconds' => ['sometimes', 'integer', 'min:10', 'max:86400'],

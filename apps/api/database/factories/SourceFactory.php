@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\NiagaraTransport;
 use App\Enums\SourceKind;
 use App\Enums\SourceStatus;
 use App\Models\Site;
@@ -46,6 +47,15 @@ class SourceFactory extends Factory
         return $this->state([
             'kind' => $kind,
             'name' => $kind->label().' — '.fake()->company(),
+        ]);
+    }
+
+    public function niagara(NiagaraTransport $transport = NiagaraTransport::Obix): self
+    {
+        return $this->state([
+            'kind' => SourceKind::Niagara,
+            'transport' => $transport,
+            'name' => SourceKind::Niagara->label().' — '.fake()->company(),
         ]);
     }
 

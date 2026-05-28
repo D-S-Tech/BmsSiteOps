@@ -2,11 +2,13 @@
 
 namespace App\Filament\Resources\Sources\Schemas;
 
+use App\Enums\NiagaraTransport;
 use App\Enums\SourceKind;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class SourceForm
@@ -25,7 +27,14 @@ class SourceForm
                     ->required(),
                 Select::make('kind')
                     ->options(SourceKind::class)
+                    ->live()
                     ->required(),
+                // Transport only applies to Niagara sources.
+                Select::make('transport')
+                    ->options(NiagaraTransport::class)
+                    ->default(NiagaraTransport::Obix->value)
+                    ->visible(fn (Get $get): bool => $get('kind') === SourceKind::Niagara->value)
+                    ->required(fn (Get $get): bool => $get('kind') === SourceKind::Niagara->value),
                 TextInput::make('name')
                     ->required()
                     ->maxLength(200),
