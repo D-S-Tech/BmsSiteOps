@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-132%2F132-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-148%2F148-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -246,7 +246,7 @@ BmsSiteOps/
 │   ├── api/                     Laravel 13 + Filament 5 + Sanctum + Horizon
 │   │   ├── app/Models/          Tenant, Site, User, Source, Device, Event
 │   │   ├── app/Support/         CurrentTenant context, TenantScope
-│   │   └── tests/Feature/       Registry · API · transport tests (46/46 ✅)
+│   │   └── tests/Feature/       Registry · API · dashboard · mute tests (60/60 ✅)
 │   │
 │   ├── web/                     SvelteKit 5 + TypeScript + Tailwind 4
 │   │   ├── src/lib/             API + registry clients · format helpers · auth
@@ -266,7 +266,7 @@ BmsSiteOps/
 │
 ├── docs/
 │   ├── ARCHITECTURE.md          System-level architecture
-│   └── adr/                     7 architecture decision records
+│   └── adr/                     8 architecture decision records
 │
 └── .github/workflows/ci.yml     4 parallel jobs: hygiene · api · web · worker
 ```
@@ -275,7 +275,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 2 complete — TRMM + Niagara (oBIX/Fox) + BACnet/IP collectors, all through one ingestion path. 132 tests green.**
+> **Status (May 2026): Sprint 3 complete — events on TimescaleDB, per-site dashboard, and device-muting operator workflow. 148 tests green.**
 
 <table>
 <thead>
@@ -285,8 +285,8 @@ BmsSiteOps/
 <tr><td><b>0</b></td><td>🟢 95% done</td><td>Repo scaffolding · multi-tenancy infrastructure · Docker Compose · CI · SvelteKit + Python worker scaffolds · deployment-as-code (scripts + runbook). Only live provisioning remains.</td></tr>
 <tr><td><b>1</b></td><td>🟢 Done</td><td>TRMM Collector · unified devices registry · internal HMAC ingestion · public REST API · Filament admin · SvelteKit pages — first end-to-end ingestion</td></tr>
 <tr><td><b>2</b></td><td>🟢 Done</td><td>Niagara collector — oBIX (live) + Fox (experimental) · BACnet/IP via bacpypes3 · source transport field — three BMS transports through one ingestion path</td></tr>
-<tr><td><b>3</b></td><td>⏳ Next</td><td>TimescaleDB migration · SvelteKit site dashboard · operator workflows</td></tr>
-<tr><td><b>4</b></td><td>⏳ Planned</td><td>LiteLLM integration · daily AI Site Brief (Claude)</td></tr>
+<tr><td><b>3</b></td><td>🟢 Done</td><td>TimescaleDB hypertable for events · site summary + timeline API · SvelteKit site dashboard · device-muting operator workflow</td></tr>
+<tr><td><b>4</b></td><td>⏳ Next</td><td>LiteLLM integration · daily AI Site Brief (Claude)</td></tr>
 <tr><td><b>5</b></td><td>⏳ Planned</td><td>Alert Triage Service · auto-remediation for known patterns</td></tr>
 <tr><td><b>6</b></td><td>⏳ Planned</td><td>Script Authoring AI (Qwen 2.5 Coder via Ollama)</td></tr>
 <tr><td><b>7</b></td><td>⏳ Planned</td><td>Site Q&A · RAG over telemetry + documents · MCP endpoint at <code>ops-mcp.bmssiteops.com/sse</code></td></tr>
@@ -320,16 +320,25 @@ BmsSiteOps/
 
 > **Hardware-validation note:** the BACnet bacpypes3 wiring and the Fox live session (handshake/auth/BQL) are written but not exercised in CI — they require validation against real hardware. Each is clearly flagged in source; neither claims to work until verified.
 
+### Sprint 3 detail
+
+- [x] 3.1 — TimescaleDB hypertable for events (pgsql-guarded, no-op on SQLite) + ADR 0008 + retention/compression config (48 tests) ([`5812988`](https://github.com/D-S-Tech/BmsSiteOps/commit/5812988))
+- [x] 3.2 — Site summary + timeline dashboard API (portable aggregations, PHP-bucketed timeline) (53 tests) ([`6fc9429`](https://github.com/D-S-Tech/BmsSiteOps/commit/6fc9429))
+- [x] 3.3 — SvelteKit site dashboard `/sites/[id]` — stat cards, severity timeline, recent events (22 web tests) ([`a3d1f64`](https://github.com/D-S-Tech/BmsSiteOps/commit/a3d1f64))
+- [x] 3.4 — Device-muting operator workflow — mute/unmute API, dashboard suppression, Filament controls (60 tests) ([`c21b3a2`](https://github.com/D-S-Tech/BmsSiteOps/commit/c21b3a2))
+
+> **DB-validation note:** the TimescaleDB hypertable conversion runs only on PostgreSQL and is not exercised by CI (which uses SQLite); it is written per the TimescaleDB docs and flagged for validation on a real instance — see ADR 0008.
+
 ---
 
 ## 🧪 Testing & CI
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 46 | ✅ |
-| `apps/web` (SvelteKit) | Vitest 4 | 20 | ✅ |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 60 | ✅ |
+| `apps/web` (SvelteKit) | Vitest 4 | 22 | ✅ |
 | `apps/worker` (Python) | pytest 8 | 66 | ✅ |
-| **Total** | | **132** | **✅** |
+| **Total** | | **148** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 
