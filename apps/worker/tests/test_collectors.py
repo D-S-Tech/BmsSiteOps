@@ -120,10 +120,9 @@ class TestCollectorStructure:
 @pytest.mark.parametrize(
     ("subclass", "kind"),
     [
-        # TrmmCollector is no longer a stub — its behavior is covered by
-        # tests/test_trmm_collector.py. Only the remaining stubs are tested
-        # for empty discover()/poll() here.
-        (NiagaraCollector, CollectorKind.NIAGARA),
+        # TRMM and Niagara are no longer stubs — their behavior is covered by
+        # tests/test_trmm_collector.py and tests/test_niagara_collector.py.
+        # Only BACnet remains a stub tested for empty discover()/poll() here.
         (BacnetCollector, CollectorKind.BACNET),
     ],
 )

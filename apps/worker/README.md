@@ -53,6 +53,7 @@ apps/worker/
 │       ├── __init__.py              public re-exports
 │       ├── base.py                  Collector ABC + CollectorConfig + CollectorEvent
 │       ├── trmm.py                  Tactical RMM collector (implemented)
+│       ├── niagara.py               Niagara collector — oBIX transport (implemented)
 │       ├── niagara.py               Tridium Niagara Fox collector (stub; Sprint 2)
 │       └── bacnet.py                BACnet/IP collector (stub; later sprint)
 └── tests/

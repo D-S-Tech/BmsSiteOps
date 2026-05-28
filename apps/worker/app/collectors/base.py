@@ -63,9 +63,15 @@ class CollectorConfig(BaseModel):
     site_id: int
     kind: CollectorKind
     name: str
+    # Transport for reaching the source — only meaningful for Niagara
+    # (obix | rest | fox). None for other kinds.
+    transport: str | None = None
     base_url: str | None = None
     credentials: dict[str, str] = Field(default_factory=dict)
     poll_interval_seconds: int = 60
+    # Free-form per-source options mirroring the sources.metadata JSON column
+    # (e.g. the oBIX points container href).
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class CollectorEvent(BaseModel):
