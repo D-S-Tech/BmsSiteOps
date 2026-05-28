@@ -53,4 +53,9 @@ class Site extends Model
     {
         return $this->hasMany(Event::class);
     }
+
+    public function briefs(): HasMany
+    {
+        return $this->hasMany(SiteBrief::class);
+    }
 }

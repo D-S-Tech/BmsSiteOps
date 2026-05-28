@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\DeviceMuteController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\SiteBriefController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\SiteDashboardController;
 use App\Http\Controllers\Api\SourceController;
@@ -37,6 +38,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->gr
     // Site dashboard aggregations (Sprint 3)
     Route::get('sites/{site}/summary', [SiteDashboardController::class, 'summary'])->name('sites.summary');
     Route::get('sites/{site}/timeline', [SiteDashboardController::class, 'timeline'])->name('sites.timeline');
+
+    // AI Site Briefs (Sprint 4) — 'latest' before the index path.
+    Route::get('sites/{site}/briefs/latest', [SiteBriefController::class, 'latest'])->name('sites.briefs.latest');
+    Route::get('sites/{site}/briefs', [SiteBriefController::class, 'index'])->name('sites.briefs.index');
 
     // Sources — full CRUD
     Route::apiResource('sources', SourceController::class);
