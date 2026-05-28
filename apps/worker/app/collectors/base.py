@@ -86,6 +86,7 @@ class CollectorEvent(BaseModel):
     timestamp: datetime
     metric: str
     value: float | str | bool | None
+    severity: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
