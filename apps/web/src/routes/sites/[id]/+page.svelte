@@ -4,10 +4,11 @@
 	import { ApiError } from '$lib/api';
 	import { registry } from '$lib/registry';
 	import { formatTimestamp, severityColor, timelineMax } from '$lib/format';
-	import type { SiteSummary, SiteTimeline } from '$lib/types';
+	import type { SiteBrief, SiteSummary, SiteTimeline } from '$lib/types';
 
 	let summary = $state<SiteSummary | null>(null);
 	let timeline = $state<SiteTimeline | null>(null);
+	let brief = $state<SiteBrief | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -19,6 +20,13 @@
 				registry.getSiteSummary(siteId),
 				registry.getSiteTimeline(siteId, 24)
 			]);
+
+			// The latest brief is optional — a site may not have one generated yet.
+			try {
+				brief = (await registry.getLatestBrief(siteId)).data;
+			} catch (e) {
+				if (!(e instanceof ApiError && e.status === 404)) throw e;
+			}
 		} catch (e) {
 			error =
 				e instanceof ApiError && e.status === 401
@@ -58,6 +66,27 @@
 				{/if}
 			</div>
 		</header>
+
+		<!-- AI Site Brief -->
+		{#if brief}
+			<section
+				class="rounded-lg border p-4"
+				style="background: var(--color-surface-1); border-color: var(--color-border-subtle);"
+			>
+				<div class="mb-2 flex items-center justify-between">
+					<h2 class="text-sm font-medium">AI Site Brief</h2>
+					<span class="text-xs" style="color: var(--color-text-muted);">
+						{brief.model} · {formatTimestamp(brief.generated_at)}
+					</span>
+				</div>
+				<p
+					class="text-sm leading-relaxed whitespace-pre-line"
+					style="color: var(--color-text-secondary);"
+				>
+					{brief.summary}
+				</p>
+			</section>
+		{/if}
 
 		<!-- Stat cards -->
 		<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">

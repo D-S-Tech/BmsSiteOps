@@ -172,3 +172,18 @@ export interface SiteTimeline {
 	to: string;
 	buckets: TimelineBucket[];
 }
+
+/**
+ * An AI-generated Site Brief (GET /sites/{id}/briefs/latest).
+ */
+export interface SiteBrief {
+	id: number;
+	site_id: number;
+	summary: string;
+	model: string;
+	period_start: string | null;
+	period_end: string | null;
+	metadata: Record<string, unknown> | null;
+	generated_at: string | null;
+	created_at: string | null;
+}

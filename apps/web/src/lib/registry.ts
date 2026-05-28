@@ -6,7 +6,16 @@
  */
 
 import { api } from '$lib/api';
-import type { Device, Event, Paginated, Site, SiteSummary, SiteTimeline, Source } from '$lib/types';
+import type {
+	Device,
+	Event,
+	Paginated,
+	Site,
+	SiteBrief,
+	SiteSummary,
+	SiteTimeline,
+	Source
+} from '$lib/types';
 
 function query(params: Record<string, string | number | boolean | undefined>): string {
 	const usp = new URLSearchParams();
@@ -28,6 +37,8 @@ export const registry = {
 
 	getSiteTimeline: (id: number, hours = 24) =>
 		api.get<SiteTimeline>(`/sites/${id}/timeline?hours=${hours}`),
+
+	getLatestBrief: (id: number) => api.get<{ data: SiteBrief }>(`/sites/${id}/briefs/latest`),
 
 	listSources: (
 		opts: { site_id?: number; kind?: string; is_active?: boolean; per_page?: number } = {}
