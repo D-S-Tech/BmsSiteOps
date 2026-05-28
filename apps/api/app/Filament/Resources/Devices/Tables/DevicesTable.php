@@ -6,8 +6,10 @@ use App\Enums\DeviceStatus;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 
 class DevicesTable
@@ -34,6 +36,10 @@ class DevicesTable
                 TextColumn::make('status')
                     ->badge()
                     ->sortable(),
+                IconColumn::make('is_muted')
+                    ->label('Muted')
+                    ->boolean()
+                    ->toggleable(),
                 TextColumn::make('last_seen_at')
                     ->label('Last seen')
                     ->dateTime()
@@ -45,6 +51,8 @@ class DevicesTable
                     ->options(DeviceStatus::class),
                 SelectFilter::make('site')
                     ->relationship('site', 'name'),
+                TernaryFilter::make('is_muted')
+                    ->label('Muted'),
             ])
             ->recordActions([
                 EditAction::make(),

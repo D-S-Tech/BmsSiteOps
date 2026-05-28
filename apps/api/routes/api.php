@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\DeviceMuteController;
 use App\Http\Controllers\Api\EventController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\SiteDashboardController;
@@ -43,6 +44,10 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->gr
     // Devices — read + filters
     Route::get('devices', [DeviceController::class, 'index'])->name('devices.index');
     Route::get('devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
+
+    // Operator workflow — device muting (Sprint 3.4)
+    Route::post('devices/{device}/mute', [DeviceMuteController::class, 'mute'])->name('devices.mute');
+    Route::post('devices/{device}/unmute', [DeviceMuteController::class, 'unmute'])->name('devices.unmute');
 
     // Events — read + filters
     Route::get('events', [EventController::class, 'index'])->name('events.index');

@@ -36,6 +36,12 @@ class SiteDashboardController extends Controller
     {
         $since = now()->subDay();
 
+        // Muted devices are suppressed from the actionable events list.
+        $mutedDeviceIds = Device::query()
+            ->where('site_id', $site->id)
+            ->effectivelyMuted()
+            ->pluck('id');
+
         return response()->json([
             'site' => SiteResource::make($site),
             'devices' => $this->deviceBreakdown($site),
@@ -45,6 +51,7 @@ class SiteDashboardController extends Controller
                 Event::query()
                     ->where('site_id', $site->id)
                     ->whereIn('severity', ['critical', 'warning'])
+                    ->whereNotIn('device_id', $mutedDeviceIds)
                     ->orderByDesc('occurred_at')
                     ->limit(10)
                     ->get()
@@ -112,11 +119,17 @@ class SiteDashboardController extends Controller
             ->groupBy('status')
             ->pluck('c', 'status');
 
+        $muted = Device::query()
+            ->where('site_id', $site->id)
+            ->effectivelyMuted()
+            ->count();
+
         return [
             'total' => (int) $counts->sum(),
             'online' => (int) $counts->get('online', 0),
             'offline' => (int) $counts->get('offline', 0),
             'unknown' => (int) $counts->get('unknown', 0),
+            'muted' => $muted,
         ];
     }
 

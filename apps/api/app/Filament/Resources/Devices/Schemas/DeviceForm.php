@@ -7,6 +7,8 @@ use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 
 class DeviceForm
@@ -44,6 +46,13 @@ class DeviceForm
                     ->required(),
                 DateTimePicker::make('last_seen_at')
                     ->label('Last seen'),
+                Toggle::make('is_muted')
+                    ->label('Muted')
+                    ->live(),
+                DateTimePicker::make('muted_until')
+                    ->label('Muted until (optional)')
+                    ->helperText('Leave empty to mute indefinitely.')
+                    ->visible(fn (Get $get): bool => (bool) $get('is_muted')),
                 KeyValue::make('metadata')
                     ->columnSpanFull(),
             ]);

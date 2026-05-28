@@ -8,6 +8,7 @@ use App\Enums\DeviceStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\DeviceFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,6 +34,8 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string|null $type e.g. server, workstation, controller, sensor
  * @property DeviceStatus $status
+ * @property bool $is_muted
+ * @property Carbon|null $muted_until
  * @property Carbon|null $last_seen_at
  * @property array $metadata
  */
@@ -43,6 +46,8 @@ use Illuminate\Support\Carbon;
     'name',
     'type',
     'status',
+    'is_muted',
+    'muted_until',
     'last_seen_at',
     'metadata',
 ])]
@@ -55,9 +60,32 @@ class Device extends Model
     {
         return [
             'status' => DeviceStatus::class,
+            'is_muted' => 'boolean',
+            'muted_until' => 'datetime',
             'last_seen_at' => 'datetime',
             'metadata' => 'array',
         ];
+    }
+
+    /**
+     * A device is effectively muted when muting is on and any timed window
+     * has not yet expired (null muted_until means muted indefinitely).
+     */
+    public function effectivelyMuted(): bool
+    {
+        return $this->is_muted
+            && ($this->muted_until === null || $this->muted_until->isFuture());
+    }
+
+    /**
+     * @param  Builder<Device>  $query
+     */
+    public function scopeEffectivelyMuted(Builder $query): void
+    {
+        $query->where('is_muted', true)
+            ->where(function (Builder $q): void {
+                $q->whereNull('muted_until')->orWhere('muted_until', '>', now());
+            });
     }
 
     public function source(): BelongsTo
