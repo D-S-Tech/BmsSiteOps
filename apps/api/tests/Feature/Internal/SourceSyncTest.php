@@ -8,11 +8,15 @@ use App\Enums\DeviceStatus;
 use App\Enums\EventSeverity;
 use App\Enums\SourceKind;
 use App\Enums\SourceStatus;
+use App\Enums\TriageAction;
+use App\Enums\TriageStatus;
 use App\Models\Device;
 use App\Models\Event;
 use App\Models\Site;
 use App\Models\Source;
 use App\Models\Tenant;
+use App\Models\TriageDecision;
+use App\Models\TriageRule;
 use App\Support\CurrentTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -238,6 +242,49 @@ class SourceSyncTest extends TestCase
         [$body, $headers] = $this->sign(['status' => 'ok']);
         $this->call('POST', $this->url(999999), [], [], [], $this->transform($headers), $body)
             ->assertStatus(404);
+    }
+
+    public function test_sync_runs_triage_on_ingested_events_and_records_decisions(): void
+    {
+        // A rule scoped to the source's tenant matches critical events.
+        CurrentTenant::set($this->source->tenant_id);
+        TriageRule::factory()
+            ->matching(['severity_match' => 'critical'])
+            ->action(TriageAction::MarkForReview)
+            ->create();
+        CurrentTenant::forget();
+
+        $payload = [
+            'devices' => [[
+                'external_id' => 'agent-001', 'name' => 'DC-SERVER-01', 'status' => 'online',
+            ]],
+            'events' => [
+                [
+                    'device_external_id' => 'agent-001', 'metric' => 'alert', 'value' => 'Disk',
+                    'severity' => 'critical', 'occurred_at' => now()->toIso8601String(),
+                ],
+                [
+                    'device_external_id' => 'agent-001', 'metric' => 'heartbeat', 'value' => 'ok',
+                    'severity' => 'info', 'occurred_at' => now()->toIso8601String(),
+                ],
+            ],
+        ];
+
+        [$body, $headers] = $this->sign($payload);
+        $this->call('POST', $this->url($this->source->id), [], [], [], $this->transform($headers), $body)
+            ->assertOk()
+            ->assertJson([
+                'source_id' => $this->source->id,
+                'devices_synced' => 1,
+                'events_ingested' => 2,
+                'triage_decisions' => 1, // only the critical event matched
+            ]);
+
+        CurrentTenant::set($this->source->tenant_id);
+        $this->assertSame(1, TriageDecision::count());
+        $decision = TriageDecision::first();
+        $this->assertSame(TriageAction::MarkForReview, $decision->action);
+        $this->assertSame(TriageStatus::Executed, $decision->status);
     }
 
     /**

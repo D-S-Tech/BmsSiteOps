@@ -8,6 +8,7 @@ use App\Enums\SourceStatus;
 use App\Models\Device;
 use App\Models\Event;
 use App\Models\Source;
+use App\Services\Triage\TriageService;
 use App\Support\CurrentTenant;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -25,9 +26,11 @@ use Illuminate\Support\Facades\DB;
  */
 class SourceSyncService
 {
+    public function __construct(private readonly TriageService $triage) {}
+
     /**
      * @param  array{status?: string, error?: string|null, devices?: array<int, array<string, mixed>>, events?: array<int, array<string, mixed>>}  $payload
-     * @return array{devices_synced: int, events_ingested: int}
+     * @return array{devices_synced: int, events_ingested: int, triage_decisions: int}
      */
     public function sync(Source $source, array $payload): array
     {
@@ -37,12 +40,18 @@ class SourceSyncService
             CurrentTenant::set($source->tenant_id);
 
             $deviceMap = $this->upsertDevices($source, $payload['devices'] ?? []);
-            $eventCount = $this->insertEvents($source, $deviceMap, $payload['events'] ?? []);
+            $events = $this->insertEvents($source, $deviceMap, $payload['events'] ?? []);
             $this->recordPollResult($source, $payload);
+
+            // Triage every newly-ingested event. Any matching rule's action
+            // (mute_device, mark_for_review, ignore) is executed in-line and
+            // a TriageDecision is persisted in the same transaction.
+            $decisions = $this->triage->evaluateMany($events);
 
             return [
                 'devices_synced' => count($deviceMap),
-                'events_ingested' => $eventCount,
+                'events_ingested' => count($events),
+                'triage_decisions' => count($decisions),
             ];
         });
     }
@@ -90,10 +99,11 @@ class SourceSyncService
      *
      * @param  array<string, int>  $deviceMap
      * @param  array<int, array<string, mixed>>  $events
+     * @return list<Event>
      */
-    private function insertEvents(Source $source, array $deviceMap, array $events): int
+    private function insertEvents(Source $source, array $deviceMap, array $events): array
     {
-        $count = 0;
+        $created = [];
 
         foreach ($events as $payload) {
             $externalId = $payload['device_external_id'];
@@ -108,7 +118,7 @@ class SourceSyncService
                 continue;
             }
 
-            Event::create([
+            $created[] = Event::create([
                 'device_id' => $deviceId,
                 'source_id' => $source->id,
                 'site_id' => $source->site_id,
@@ -119,11 +129,9 @@ class SourceSyncService
                 'occurred_at' => Carbon::parse($payload['occurred_at']),
                 'metadata' => $payload['metadata'] ?? [],
             ]);
-
-            $count++;
         }
 
-        return $count;
+        return $created;
     }
 
     /**

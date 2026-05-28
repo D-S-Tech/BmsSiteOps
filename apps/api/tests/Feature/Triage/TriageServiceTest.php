@@ -21,8 +21,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Integration tests for TriageService.evaluate — finds the highest-priority
- * matching enabled rule and persists a pending decision.
+ * Integration tests for TriageService — find the highest-priority matching
+ * rule, run its action via TriageActionExecutor, persist the resulting
+ * decision with the right status (Sprint 5.2).
  */
 class TriageServiceTest extends TestCase
 {
@@ -66,7 +67,7 @@ class TriageServiceTest extends TestCase
         $this->assertSame(0, TriageDecision::count());
     }
 
-    public function test_persists_a_pending_decision_when_a_rule_matches(): void
+    public function test_mark_for_review_persists_executed_decision(): void
     {
         $rule = TriageRule::factory()
             ->matching(['severity_match' => 'critical'])
@@ -81,10 +82,64 @@ class TriageServiceTest extends TestCase
         $this->assertNotNull($decision);
         $this->assertSame($rule->id, $decision->rule_id);
         $this->assertSame($event->id, $decision->event_id);
-        $this->assertSame($event->site_id, $decision->site_id);
         $this->assertSame(TriageAction::MarkForReview, $decision->action);
-        $this->assertSame(TriageStatus::Pending, $decision->status);
-        $this->assertSame(1, TriageDecision::count());
+        $this->assertSame(TriageStatus::Executed, $decision->status);
+    }
+
+    public function test_mute_device_action_actually_mutes_the_device(): void
+    {
+        TriageRule::factory()
+            ->matching(['severity_match' => 'critical'])
+            ->action(TriageAction::MuteDevice)
+            ->create();
+
+        $event = Event::factory()->forDevice($this->device)
+            ->severity(EventSeverity::Critical)->create();
+
+        $decision = $this->service->evaluate($event);
+
+        $this->assertNotNull($decision);
+        $this->assertSame(TriageStatus::Executed, $decision->status);
+        $this->assertSame($this->device->id, $decision->result['muted_device_id']);
+
+        $this->assertTrue($this->device->fresh()->is_muted);
+        // No duration_minutes -> indefinite mute
+        $this->assertNull($this->device->fresh()->muted_until);
+    }
+
+    public function test_mute_device_with_duration_minutes_sets_muted_until(): void
+    {
+        TriageRule::factory()
+            ->matching(['severity_match' => 'critical'])
+            ->action(TriageAction::MuteDevice)
+            ->create(['action_params' => ['duration_minutes' => 60]]);
+
+        $event = Event::factory()->forDevice($this->device)
+            ->severity(EventSeverity::Critical)->create();
+
+        $this->service->evaluate($event);
+
+        $fresh = $this->device->fresh();
+        $this->assertTrue($fresh->is_muted);
+        $this->assertNotNull($fresh->muted_until);
+        $this->assertTrue($fresh->muted_until->isFuture());
+    }
+
+    public function test_ignore_action_results_in_skipped_status_and_no_device_change(): void
+    {
+        TriageRule::factory()
+            ->matching(['severity_match' => 'critical'])
+            ->action(TriageAction::Ignore)
+            ->create();
+
+        $event = Event::factory()->forDevice($this->device)
+            ->severity(EventSeverity::Critical)->create();
+
+        $decision = $this->service->evaluate($event);
+
+        $this->assertNotNull($decision);
+        $this->assertSame(TriageStatus::Skipped, $decision->status);
+        $this->assertFalse($this->device->fresh()->is_muted);
     }
 
     public function test_picks_highest_priority_rule_when_multiple_match(): void
@@ -114,11 +169,11 @@ class TriageServiceTest extends TestCase
         $this->assertNotNull($decision);
         $this->assertSame($winner->id, $decision->rule_id);
         $this->assertSame(TriageAction::MuteDevice, $decision->action);
+        $this->assertSame(TriageStatus::Executed, $decision->status);
     }
 
     public function test_disabled_rules_are_skipped(): void
     {
-        // The only matching rule is disabled — no decision.
         TriageRule::factory()
             ->matching(['severity_match' => 'critical'])
             ->disabled()
@@ -132,7 +187,6 @@ class TriageServiceTest extends TestCase
 
     public function test_rules_are_tenant_scoped(): void
     {
-        // Other tenant has a critical-severity rule, but it must not apply.
         $other = Tenant::create(['slug' => 'other', 'name' => 'Other']);
         CurrentTenant::set($other);
         TriageRule::factory()->matching(['severity_match' => 'critical'])->create();

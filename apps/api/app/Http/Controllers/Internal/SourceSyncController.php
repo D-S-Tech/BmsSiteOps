@@ -35,6 +35,7 @@ class SourceSyncController extends Controller
             'source_id' => $source->id,
             'devices_synced' => $result['devices_synced'],
             'events_ingested' => $result['events_ingested'],
+            'triage_decisions' => $result['triage_decisions'],
         ]);
     }
 }
