@@ -56,6 +56,15 @@ class Source extends Model
     /** @use HasFactory<SourceFactory> */
     use BelongsToTenant, HasFactory;
 
+    /**
+     * Model-level default so a fresh instance has last_status before insert.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'last_status' => 'never',
+    ];
+
     protected function casts(): array
     {
         return [
