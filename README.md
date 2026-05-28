@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-88%2F88-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-132%2F132-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -246,7 +246,7 @@ BmsSiteOps/
 │   ├── api/                     Laravel 13 + Filament 5 + Sanctum + Horizon
 │   │   ├── app/Models/          Tenant, Site, User, Source, Device, Event
 │   │   ├── app/Support/         CurrentTenant context, TenantScope
-│   │   └── tests/Feature/       Registry · API · tenancy tests (39/39 ✅)
+│   │   └── tests/Feature/       Registry · API · transport tests (46/46 ✅)
 │   │
 │   ├── web/                     SvelteKit 5 + TypeScript + Tailwind 4
 │   │   ├── src/lib/             API + registry clients · format helpers · auth
@@ -254,10 +254,10 @@ BmsSiteOps/
 │   │
 │   └── worker/                  Python 3.12 + FastAPI + uv
 │       ├── app/main.py          FastAPI app + /health
-│       ├── app/collectors/      Collector ABC · TRMM (live) · Niagara/BACnet stubs
+│       ├── app/collectors/      TRMM · Niagara (oBIX+Fox) · BACnet — all live
 │       ├── app/clients/         TRMM REST client · HMAC ingest push client
 │       ├── app/runner.py        SyncRunner — collector → API
-│       └── tests/               pytest suite (29/29 ✅)
+│       └── tests/               pytest suite (66/66 ✅)
 │
 ├── infra/
 │   ├── docker/                  Per-app Dockerfiles (multi-stage)
@@ -275,7 +275,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 1 complete — end-to-end ingestion live (TRMM → registry → API → UI). 88 tests green.**
+> **Status (May 2026): Sprint 2 complete — TRMM + Niagara (oBIX/Fox) + BACnet/IP collectors, all through one ingestion path. 132 tests green.**
 
 <table>
 <thead>
@@ -284,8 +284,8 @@ BmsSiteOps/
 <tbody>
 <tr><td><b>0</b></td><td>🟢 95% done</td><td>Repo scaffolding · multi-tenancy infrastructure · Docker Compose · CI · SvelteKit + Python worker scaffolds · deployment-as-code (scripts + runbook). Only live provisioning remains.</td></tr>
 <tr><td><b>1</b></td><td>🟢 Done</td><td>TRMM Collector · unified devices registry · internal HMAC ingestion · public REST API · Filament admin · SvelteKit pages — first end-to-end ingestion</td></tr>
-<tr><td><b>2</b></td><td>⏳ Next</td><td>Niagara collector (oBIX/REST) · station-level health · mock server for testing</td></tr>
-<tr><td><b>3</b></td><td>⏳ Planned</td><td>TimescaleDB migration · SvelteKit site dashboard · operator workflows</td></tr>
+<tr><td><b>2</b></td><td>🟢 Done</td><td>Niagara collector — oBIX (live) + Fox (experimental) · BACnet/IP via bacpypes3 · source transport field — three BMS transports through one ingestion path</td></tr>
+<tr><td><b>3</b></td><td>⏳ Next</td><td>TimescaleDB migration · SvelteKit site dashboard · operator workflows</td></tr>
 <tr><td><b>4</b></td><td>⏳ Planned</td><td>LiteLLM integration · daily AI Site Brief (Claude)</td></tr>
 <tr><td><b>5</b></td><td>⏳ Planned</td><td>Alert Triage Service · auto-remediation for known patterns</td></tr>
 <tr><td><b>6</b></td><td>⏳ Planned</td><td>Script Authoring AI (Qwen 2.5 Coder via Ollama)</td></tr>
@@ -311,16 +311,25 @@ BmsSiteOps/
 - [x] 1.5 — TRMM collector + REST client + HMAC ingest client + SyncRunner (29 worker tests) ([`061e37c`](https://github.com/D-S-Tech/BmsSiteOps/commit/061e37c))
 - [x] 1.6 — SvelteKit registry types · helpers · sites + devices pages (20 web tests) ([`14bab0a`](https://github.com/D-S-Tech/BmsSiteOps/commit/14bab0a))
 
+### Sprint 2 detail
+
+- [x] 2.1a — Source `transport` field (obix·rest·fox) + reactive Filament select (7 tests) ([`ec4ac2f`](https://github.com/D-S-Tech/BmsSiteOps/commit/ec4ac2f))
+- [x] 2.1b — Niagara oBIX client + collector (oBIX transport, live) ([`d70d516`](https://github.com/D-S-Tech/BmsSiteOps/commit/d70d516))
+- [x] 2.2 — BACnet/IP collector via bacpypes3 (transport seam + fake-tested mapping) ([`93c8a4a`](https://github.com/D-S-Tech/BmsSiteOps/commit/93c8a4a))
+- [x] 2.3 — Niagara Fox transport — value codec (tested) + mapping; live session experimental, JACE-validation flagged ([`5515174`](https://github.com/D-S-Tech/BmsSiteOps/commit/5515174))
+
+> **Hardware-validation note:** the BACnet bacpypes3 wiring and the Fox live session (handshake/auth/BQL) are written but not exercised in CI — they require validation against real hardware. Each is clearly flagged in source; neither claims to work until verified.
+
 ---
 
 ## 🧪 Testing & CI
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 39 | ✅ |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 46 | ✅ |
 | `apps/web` (SvelteKit) | Vitest 4 | 20 | ✅ |
-| `apps/worker` (Python) | pytest 8 | 29 | ✅ |
-| **Total** | | **88** | **✅** |
+| `apps/worker` (Python) | pytest 8 | 66 | ✅ |
+| **Total** | | **132** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 
