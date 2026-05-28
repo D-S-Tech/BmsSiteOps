@@ -35,4 +35,23 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Python worker (internal)
+    |--------------------------------------------------------------------------
+    |
+    | Shared HMAC secret used to authenticate requests from the Python worker
+    | to the internal ingestion API. Must match WORKER_INTERNAL_KEY on the
+    | worker side. The internal endpoints reject all requests if this is unset
+    | or still the placeholder value.
+    |
+    */
+
+    'worker' => [
+        'internal_key' => env('WORKER_INTERNAL_KEY'),
+        // Reject worker requests whose timestamp drifts more than this many
+        // seconds from server time (replay-attack protection).
+        'max_clock_skew' => (int) env('WORKER_MAX_CLOCK_SKEW', 300),
+    ],
+
 ];
