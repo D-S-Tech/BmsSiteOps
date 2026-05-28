@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Internal\BriefContextController;
+use App\Http\Controllers\Internal\ClaimDocumentController;
 use App\Http\Controllers\Internal\ClaimScriptController;
 use App\Http\Controllers\Internal\SourceSyncController;
 use App\Http\Controllers\Internal\StoreSiteBriefController;
+use App\Http\Controllers\Internal\SubmitDocumentEmbeddingsController;
 use App\Http\Controllers\Internal\SubmitScriptResultController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,4 +44,12 @@ Route::middleware('worker.signature')->prefix('internal')->group(function () {
     Route::post('scripts/{script}/result', SubmitScriptResultController::class)
         ->whereNumber('script')
         ->name('internal.scripts.result');
+
+    // RAG documents (Sprint 7.2): worker claims a pending document, embeds
+    // its chunks via the LLM seam, pushes the embeddings back.
+    Route::post('documents/claim', ClaimDocumentController::class)
+        ->name('internal.documents.claim');
+    Route::post('documents/{document}/embeddings', SubmitDocumentEmbeddingsController::class)
+        ->whereNumber('document')
+        ->name('internal.documents.embeddings');
 });
