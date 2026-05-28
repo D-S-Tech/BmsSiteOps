@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-224%2F224-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-265%2F265-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -246,11 +246,11 @@ BmsSiteOps/
 │   ├── api/                     Laravel 13 + Filament 5 + Sanctum + Horizon
 │   │   ├── app/Models/          Tenant, Site, User, Source, Device, Event
 │   │   ├── app/Support/         CurrentTenant context, TenantScope
-│   │   └── tests/Feature/       Registry · API · dashboard · brief · triage tests (110/110 ✅)
+│   │   └── tests/Feature/       Registry · API · dashboard · brief · triage · scripts tests (128/128 ✅)
 │   │
 │   ├── web/                     SvelteKit 5 + TypeScript + Tailwind 4
 │   │   ├── src/lib/             API + registry clients · format helpers · auth
-│   │   └── src/routes/          sites · devices · dashboard (brief + triage card)
+│   │   └── src/routes/          sites · devices · dashboard · scripts (list / new / detail polling)
 │   │
 │   └── worker/                  Python 3.12 + FastAPI + uv
 │       ├── app/main.py          FastAPI app + /health
@@ -259,7 +259,7 @@ BmsSiteOps/
 │       ├── app/remediation/     Remediation seam · TRMM transport · dispatcher
 │       ├── app/clients/         TRMM/oBIX clients · HMAC ingest + brief clients
 │       ├── app/runner.py        SyncRunner — collector → API
-│       └── tests/               pytest suite (92/92 ✅)
+│       └── tests/               pytest suite (115/115 ✅)
 │
 ├── infra/
 │   ├── docker/                  Per-app Dockerfiles (multi-stage)
@@ -277,7 +277,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 5 complete — alert triage: per-tenant rules with a pure matcher; ingestion runs triage in-line and mutes/flags/ignores per rule; Filament CRUD + dashboard indicator. Worker remediation seam ready for the next sprint to wire. 224 tests green.**
+> **Status (May 2026): Sprint 6 complete — AI Script Authoring end to end: operators request a script from the web, the worker claims it from the queue and runs it through the local Ollama-backed Qwen 2.5 Coder via the same LiteLLM seam that powers the AI Site Brief, then submits the result back over HMAC; SvelteKit polls until ready. 265 tests green.**
 
 <table>
 <thead>
@@ -290,8 +290,8 @@ BmsSiteOps/
 <tr><td><b>3</b></td><td>🟢 Done</td><td>TimescaleDB hypertable for events · site summary + timeline API · SvelteKit site dashboard · device-muting operator workflow</td></tr>
 <tr><td><b>4</b></td><td>🟢 Done</td><td>AI Site Brief end to end — LiteLLM LLM seam · context → generate → store over HMAC · dashboard renders the latest brief</td></tr>
 <tr><td><b>5</b></td><td>🟢 Done</td><td>Alert Triage end to end — rule matcher · in-line action execution from ingestion (mute / mark / ignore) · Filament CRUD · worker remediation seam (TRMM agent restart, foundation only)</td></tr>
-<tr><td><b>6</b></td><td>⏳ Next</td><td>Script Authoring AI (Qwen 2.5 Coder via Ollama)</td></tr>
-<tr><td><b>7</b></td><td>⏳ Planned</td><td>Site Q&A · RAG over telemetry + documents · MCP endpoint at <code>ops-mcp.bmssiteops.com/sse</code></td></tr>
+<tr><td><b>6</b></td><td>🟢 Done</td><td>AI Script Authoring end to end — request → claim → generate (Ollama / Qwen 2.5 Coder via the existing LiteLLM seam) → submit; Filament audit + SvelteKit /scripts routes with polling</td></tr>
+<tr><td><b>7</b></td><td>⏳ Next</td><td>Site Q&A · RAG over telemetry + documents · MCP endpoint at <code>ops-mcp.bmssiteops.com/sse</code></td></tr>
 </tbody>
 </table>
 
@@ -347,16 +347,24 @@ BmsSiteOps/
 
 > **TRMM-integration note:** the remediation seam is built and the TRMM transport's request shape (URL, `X-API-KEY` header, error mapping) is verified with respx. The live call against a running TRMM instance is integration-only and not in CI — same posture as the LiteLLM and TimescaleDB validation notes. No Laravel→worker dispatch path exists yet for `restart_trmm_agent`; that wiring is a future sprint.
 
+### Sprint 6 detail
+
+- [x] 6.1 — Laravel core: `scripts` table + `ScriptLanguage` (9 values incl. ESPHome / Node-RED / BACnet / Niagara) + `ScriptStatus` enums; public API (POST request, GET list/show with `is_pending` for polling); internal HMAC endpoints (atomic claim under `lockForUpdate`, 409 on stale submissions) (128 api tests) ([`e43f2e4`](https://github.com/D-S-Tech/BmsSiteOps/commit/e43f2e4))
+- [x] 6.2 — Worker: `ScriptGenerator` (BMS-flavored system prompt for ESPHome/Node-RED/BACnet/Niagara languages, defensive single-fence stripping, LLM-transport errors → failed status); `ScriptsClient` (HMAC claim + submit); `ScriptRunner` (claim → generate → submit, with `drain()` for batch processing) (115 worker tests) ([`47b87ee`](https://github.com/D-S-Tech/BmsSiteOps/commit/47b87ee))
+- [x] 6.3 — Filament Scripts resource (read-only list + view, infolist with monospace code rendering); SvelteKit `/scripts` routes (list, new-request form, detail page that polls every 2s while `is_pending`, copy-to-clipboard on ready) (265 total tests) ([`56669c8`](https://github.com/D-S-Tech/BmsSiteOps/commit/56669c8))
+
+> **Ollama-integration note:** the script generator uses the same `LLMClient` seam built in Sprint 4 — switching from Anthropic (briefs) to local Ollama (scripts) is a `model` config change (`ollama/qwen2.5-coder:32b`), not a code change. LiteLLM proxy routes the prefix to the Ollama backend. Prompt building, fence stripping, and the runner's claim/generate/submit flow are unit-tested with a `FakeLLMClient`; the live Qwen 2.5 Coder inference call against a running Ollama is integration-only and not in CI — same posture as the LiteLLM, TRMM, and TimescaleDB notes above.
+
 ---
 
 ## 🧪 Testing & CI
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 110 | ✅ |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 128 | ✅ |
 | `apps/web` (SvelteKit) | Vitest 4 | 22 | ✅ |
-| `apps/worker` (Python) | pytest 8 | 92 | ✅ |
-| **Total** | | **224** | **✅** |
+| `apps/worker` (Python) | pytest 8 | 115 | ✅ |
+| **Total** | | **265** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 
