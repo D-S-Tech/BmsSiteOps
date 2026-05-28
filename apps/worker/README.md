@@ -56,8 +56,8 @@ apps/worker/
 │   │   ├── trmm.py                  Tactical RMM collector (live)
 │   │   ├── niagara.py               Niagara collector — oBIX (live) + Fox (experimental)
 │   │   └── bacnet.py                BACnet/IP collector — bacpypes3 (request-building tested)
-│   ├── clients/                     HTTP clients (TRMM, oBIX, internal ingest + brief)
-│   ├── ai/                          LLM seam — LiteLLM client + Site Brief generator
+│   ├── clients/                     HTTP clients — TRMM · oBIX · ingest · brief · scripts
+│   ├── ai/                          LLM seam · Site Brief gen · Script gen · runners
 │   └── remediation/                 Worker-side remediation seam
 │       ├── __init__.py              public re-exports
 │       ├── base.py                  RemediationAction/Result + Transport ABC + Fake
