@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-35%2F35-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-88%2F88-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -244,18 +244,20 @@ Decisions and trade-offs documented in [`docs/adr/0003-stack-choices.md`](docs/a
 BmsSiteOps/
 ├── apps/
 │   ├── api/                     Laravel 13 + Filament 5 + Sanctum + Horizon
-│   │   ├── app/Models/          Tenant, Site, User + BelongsToTenant trait
+│   │   ├── app/Models/          Tenant, Site, User, Source, Device, Event
 │   │   ├── app/Support/         CurrentTenant context, TenantScope
-│   │   └── tests/Feature/       Tenancy isolation tests (6/6 ✅)
+│   │   └── tests/Feature/       Registry · API · tenancy tests (39/39 ✅)
 │   │
 │   ├── web/                     SvelteKit 5 + TypeScript + Tailwind 4
-│   │   ├── src/lib/             Typed API client · auth helpers · design tokens
-│   │   └── src/routes/          File-based routing (SSR via adapter-node)
+│   │   ├── src/lib/             API + registry clients · format helpers · auth
+│   │   └── src/routes/          sites · devices pages (SSR via adapter-node)
 │   │
 │   └── worker/                  Python 3.12 + FastAPI + uv
 │       ├── app/main.py          FastAPI app + /health
-│       ├── app/collectors/      Collector ABC + TRMM · Niagara · BACnet
-│       └── tests/               pytest suite (21/21 ✅)
+│       ├── app/collectors/      Collector ABC · TRMM (live) · Niagara/BACnet stubs
+│       ├── app/clients/         TRMM REST client · HMAC ingest push client
+│       ├── app/runner.py        SyncRunner — collector → API
+│       └── tests/               pytest suite (29/29 ✅)
 │
 ├── infra/
 │   ├── docker/                  Per-app Dockerfiles (multi-stage)
@@ -264,7 +266,7 @@ BmsSiteOps/
 │
 ├── docs/
 │   ├── ARCHITECTURE.md          System-level architecture
-│   └── adr/                     6 architecture decision records
+│   └── adr/                     7 architecture decision records
 │
 └── .github/workflows/ci.yml     4 parallel jobs: hygiene · api · web · worker
 ```
@@ -273,7 +275,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 0 nearly complete — full development stack scaffolded and CI green.**
+> **Status (May 2026): Sprint 1 complete — end-to-end ingestion live (TRMM → registry → API → UI). 88 tests green.**
 
 <table>
 <thead>
@@ -281,8 +283,8 @@ BmsSiteOps/
 </thead>
 <tbody>
 <tr><td><b>0</b></td><td>🟢 95% done</td><td>Repo scaffolding · multi-tenancy infrastructure · Docker Compose · CI · SvelteKit + Python worker scaffolds · deployment-as-code (scripts + runbook). Only live provisioning remains.</td></tr>
-<tr><td><b>1</b></td><td>⏳ Next</td><td>TRMM Collector · unified devices registry · first end-to-end ingestion</td></tr>
-<tr><td><b>2</b></td><td>⏳ Planned</td><td>Niagara Fox collector · mock Fox server for testing · station-level health</td></tr>
+<tr><td><b>1</b></td><td>🟢 Done</td><td>TRMM Collector · unified devices registry · internal HMAC ingestion · public REST API · Filament admin · SvelteKit pages — first end-to-end ingestion</td></tr>
+<tr><td><b>2</b></td><td>⏳ Next</td><td>Niagara collector (oBIX/REST) · station-level health · mock server for testing</td></tr>
 <tr><td><b>3</b></td><td>⏳ Planned</td><td>TimescaleDB migration · SvelteKit site dashboard · operator workflows</td></tr>
 <tr><td><b>4</b></td><td>⏳ Planned</td><td>LiteLLM integration · daily AI Site Brief (Claude)</td></tr>
 <tr><td><b>5</b></td><td>⏳ Planned</td><td>Alert Triage Service · auto-remediation for known patterns</td></tr>
@@ -300,16 +302,25 @@ BmsSiteOps/
 - [x] Day 5a — Deployment-as-code: `bootstrap-server.sh`, `deploy.sh`, `DEPLOYMENT.md`, ADR 0007, prod env template ([deploy docs](docs/DEPLOYMENT.md))
 - [ ] Day 5b — Live provisioning: LXC + DNS + first `make prod-up` _(operator step)_
 
+### Sprint 1 detail
+
+- [x] 1.1 — Source/Device/Event registry data model + enums + factories (11 tests) ([`fab400b`](https://github.com/D-S-Tech/BmsSiteOps/commit/fab400b))
+- [x] 1.2 — Internal HMAC ingestion API + atomic sync service (10 tests) ([`7b3bab2`](https://github.com/D-S-Tech/BmsSiteOps/commit/7b3bab2))
+- [x] 1.3 — Public REST API: sites · sources (CRUD) · devices · events (12 tests) ([`0c97fe5`](https://github.com/D-S-Tech/BmsSiteOps/commit/0c97fe5))
+- [x] 1.4 — Filament 5 admin resources for the registry ([`9365f31`](https://github.com/D-S-Tech/BmsSiteOps/commit/9365f31))
+- [x] 1.5 — TRMM collector + REST client + HMAC ingest client + SyncRunner (29 worker tests) ([`061e37c`](https://github.com/D-S-Tech/BmsSiteOps/commit/061e37c))
+- [x] 1.6 — SvelteKit registry types · helpers · sites + devices pages (20 web tests) ([`14bab0a`](https://github.com/D-S-Tech/BmsSiteOps/commit/14bab0a))
+
 ---
 
 ## 🧪 Testing & CI
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 6 | ✅ |
-| `apps/web` (SvelteKit) | Vitest 4 | 8 | ✅ |
-| `apps/worker` (Python) | pytest 8 | 21 | ✅ |
-| **Total** | | **35** | **✅** |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 39 | ✅ |
+| `apps/web` (SvelteKit) | Vitest 4 | 20 | ✅ |
+| `apps/worker` (Python) | pytest 8 | 29 | ✅ |
+| **Total** | | **88** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 
