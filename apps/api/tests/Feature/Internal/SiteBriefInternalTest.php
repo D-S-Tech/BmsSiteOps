@@ -5,12 +5,16 @@ declare(strict_types=1);
 namespace Tests\Feature\Internal;
 
 use App\Enums\EventSeverity;
+use App\Enums\TriageAction;
+use App\Enums\TriageStatus;
 use App\Models\Device;
 use App\Models\Event;
 use App\Models\Site;
 use App\Models\SiteBrief;
 use App\Models\Source;
 use App\Models\Tenant;
+use App\Models\TriageDecision;
+use App\Models\TriageRule;
 use App\Support\CurrentTenant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -87,9 +91,50 @@ class SiteBriefInternalTest extends TestCase
                 'events' => ['total', 'critical'],
                 'timeline',
                 'recent_events',
+                'triage_24h' => ['total', 'executed', 'failed', 'skipped'],
             ])
             ->assertJsonPath('site.id', $this->site->id)
             ->assertJsonPath('events.critical', 2);
+    }
+
+    public function test_brief_context_includes_triage_breakdown(): void
+    {
+        CurrentTenant::set($this->source->tenant_id);
+        $device = Device::factory()->forSource($this->source)->create();
+        $rule = TriageRule::factory()
+            ->matching(['severity_match' => 'critical'])
+            ->action(TriageAction::MarkForReview)
+            ->create();
+
+        // 2 executed + 1 skipped + 1 failed decisions within the window.
+        $event = Event::factory()->forDevice($device)->create();
+        TriageDecision::factory()->forEvent($event)->forRule($rule)
+            ->status(TriageStatus::Executed)->count(2)
+            ->create(['occurred_at' => now()->subHour()]);
+        TriageDecision::factory()->forEvent($event)->forRule($rule)
+            ->status(TriageStatus::Skipped)
+            ->create(['occurred_at' => now()->subHour()]);
+        TriageDecision::factory()->forEvent($event)->forRule($rule)
+            ->status(TriageStatus::Failed)
+            ->create(['occurred_at' => now()->subHour()]);
+        CurrentTenant::forget();
+
+        [$server, $body] = $this->signGet();
+        $response = $this->call(
+            'GET',
+            "/internal/sites/{$this->site->id}/brief-context",
+            [],
+            [],
+            [],
+            $server,
+            $body
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('triage_24h.total', 4)
+            ->assertJsonPath('triage_24h.executed', 2)
+            ->assertJsonPath('triage_24h.skipped', 1)
+            ->assertJsonPath('triage_24h.failed', 1);
     }
 
     // --- store brief (POST) ---------------------------------------------------

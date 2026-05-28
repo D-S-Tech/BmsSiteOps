@@ -65,6 +65,7 @@ class SiteBriefGenerator:
         sources = context.get("sources", {})
         events = context.get("events", {})
         recent = context.get("recent_events", [])
+        triage = context.get("triage_24h", {})
 
         lines = [
             f"Site: {site.get('name', 'Unknown')} (id {site.get('id', '?')})",
@@ -87,8 +88,20 @@ class SiteBriefGenerator:
             f"{events.get('critical', 0)} critical, "
             f"{events.get('warning', 0)} warning, "
             f"{events.get('info', 0)} info",
-            "",
         ]
+
+        # Only mention automated triage when something actually happened in the
+        # window — keeps the brief tight when no rules fired.
+        if triage.get("total", 0) > 0:
+            lines.append(
+                "Automated triage in window: "
+                f"{triage.get('total', 0)} decisions "
+                f"({triage.get('executed', 0)} executed, "
+                f"{triage.get('failed', 0)} failed, "
+                f"{triage.get('skipped', 0)} skipped)"
+            )
+
+        lines.append("")
 
         if recent:
             lines.append("Most recent actionable events:")

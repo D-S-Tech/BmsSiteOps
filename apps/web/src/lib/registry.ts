@@ -14,7 +14,8 @@ import type {
 	SiteBrief,
 	SiteSummary,
 	SiteTimeline,
-	Source
+	Source,
+	TriageDecision
 } from '$lib/types';
 
 function query(params: Record<string, string | number | boolean | undefined>): string {
@@ -39,6 +40,8 @@ export const registry = {
 		api.get<SiteTimeline>(`/sites/${id}/timeline?hours=${hours}`),
 
 	getLatestBrief: (id: number) => api.get<{ data: SiteBrief }>(`/sites/${id}/briefs/latest`),
+	listTriageDecisions: (id: number, opts: { per_page?: number } = {}) =>
+		api.get<Paginated<TriageDecision>>(`/sites/${id}/triage-decisions${query(opts)}`),
 
 	listSources: (
 		opts: { site_id?: number; kind?: string; is_active?: boolean; per_page?: number } = {}

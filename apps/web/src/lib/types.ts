@@ -187,3 +187,30 @@ export interface SiteBrief {
 	generated_at: string | null;
 	created_at: string | null;
 }
+
+/**
+ * A single triage decision (audit row).
+ *
+ * GET /sites/{id}/triage-decisions returns Paginated<TriageDecision>; the
+ * embedded `rule` object is present when the endpoint is asked for it via
+ * eager loading.
+ */
+export interface TriageDecision {
+	id: number;
+	event_id: number;
+	rule_id: number;
+	site_id: number;
+	action: string;
+	action_label: string;
+	status: 'pending' | 'executed' | 'failed' | 'skipped';
+	status_label: string;
+	notes: string | null;
+	result: Record<string, unknown> | null;
+	occurred_at: string | null;
+	created_at: string | null;
+	rule?: {
+		id: number;
+		name: string;
+		action: string;
+	};
+}

@@ -52,6 +52,25 @@ def test_build_prompt_handles_no_recent_events() -> None:
     assert "No recent critical or warning events." in prompt
 
 
+def test_build_prompt_omits_triage_when_no_decisions() -> None:
+    ctx = _context()
+    # No triage_24h key at all — pre-Sprint-5 contexts should still work.
+    gen = SiteBriefGenerator(FakeLLMClient(), model="m")
+    prompt = gen.build_prompt(ctx)
+    assert "Automated triage" not in prompt
+
+
+def test_build_prompt_mentions_triage_when_decisions_exist() -> None:
+    ctx = _context()
+    ctx["triage_24h"] = {"total": 3, "executed": 2, "failed": 1, "skipped": 0}
+    gen = SiteBriefGenerator(FakeLLMClient(), model="m")
+    prompt = gen.build_prompt(ctx)
+    assert "Automated triage in window:" in prompt
+    assert "3 decisions" in prompt
+    assert "2 executed" in prompt
+    assert "1 failed" in prompt
+
+
 async def test_generate_produces_result_from_llm() -> None:
     fake = FakeLLMClient(response_text="  Two critical alerts on AHU-1.  ", output_tokens=33)
     gen = SiteBriefGenerator(fake, model="claude-sonnet-4-5")

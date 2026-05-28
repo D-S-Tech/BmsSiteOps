@@ -4,11 +4,12 @@
 	import { ApiError } from '$lib/api';
 	import { registry } from '$lib/registry';
 	import { formatTimestamp, severityColor, timelineMax } from '$lib/format';
-	import type { SiteBrief, SiteSummary, SiteTimeline } from '$lib/types';
+	import type { SiteBrief, SiteSummary, SiteTimeline, TriageDecision } from '$lib/types';
 
 	let summary = $state<SiteSummary | null>(null);
 	let timeline = $state<SiteTimeline | null>(null);
 	let brief = $state<SiteBrief | null>(null);
+	let triage = $state<TriageDecision[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 
@@ -27,6 +28,13 @@
 			} catch (e) {
 				if (!(e instanceof ApiError && e.status === 404)) throw e;
 			}
+
+			// Triage activity is also optional; a site with no rules has none.
+			try {
+				triage = (await registry.listTriageDecisions(siteId, { per_page: 100 })).data;
+			} catch (e) {
+				if (!(e instanceof ApiError && e.status === 404)) throw e;
+			}
 		} catch (e) {
 			error =
 				e instanceof ApiError && e.status === 401
@@ -42,6 +50,20 @@
 	});
 
 	const maxTotal = $derived(timeline ? timelineMax(timeline.buckets) : 1);
+
+	const triageSummary = $derived.by(() => {
+		const dayAgoMs = Date.now() - 24 * 60 * 60 * 1000;
+		const recent = triage.filter((d) => {
+			if (!d.occurred_at) return false;
+			return new Date(d.occurred_at).getTime() >= dayAgoMs;
+		});
+		return {
+			total: recent.length,
+			executed: recent.filter((d) => d.status === 'executed').length,
+			failed: recent.filter((d) => d.status === 'failed').length,
+			skipped: recent.filter((d) => d.status === 'skipped').length
+		};
+	});
 </script>
 
 <svelte:head><title>{summary?.site.name ?? 'Site'} · BmsSiteOps</title></svelte:head>
@@ -85,6 +107,36 @@
 				>
 					{brief.summary}
 				</p>
+			</section>
+		{/if}
+
+		<!-- Triage activity (24h) -->
+		{#if triageSummary.total > 0}
+			<section
+				class="rounded-lg border p-4"
+				style="background: var(--color-surface-1); border-color: var(--color-border-subtle);"
+			>
+				<div class="mb-2 flex items-center justify-between">
+					<h2 class="text-sm font-medium">Triage activity (24h)</h2>
+					<span class="text-xs" style="color: var(--color-text-muted);">
+						{triageSummary.total} decision{triageSummary.total === 1 ? '' : 's'}
+					</span>
+				</div>
+				<div class="flex gap-4 text-sm">
+					<span style="color: var(--color-text-secondary);">
+						<span style="color: var(--color-success, #16a34a); font-weight: 500;">
+							{triageSummary.executed}
+						</span> executed
+					</span>
+					<span style="color: var(--color-text-secondary);">
+						<span style="color: var(--color-danger, #dc2626); font-weight: 500;">
+							{triageSummary.failed}
+						</span> failed
+					</span>
+					<span style="color: var(--color-text-secondary);">
+						<span style="font-weight: 500;">{triageSummary.skipped}</span> skipped
+					</span>
+				</div>
 			</section>
 		{/if}
 

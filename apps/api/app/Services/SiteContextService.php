@@ -8,6 +8,7 @@ use App\Models\Device;
 use App\Models\Event;
 use App\Models\Site;
 use App\Models\Source;
+use App\Models\TriageDecision;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Carbon;
 
@@ -153,6 +154,32 @@ class SiteContextService
     }
 
     /**
+     * Triage activity at this site in the given window, grouped by status.
+     *
+     * Shape: {total: int, executed: int, failed: int, skipped: int}.
+     * Status keys not present in the rows are still emitted as 0 — the worker
+     * prompt template can rely on every key existing.
+     *
+     * @return array<string, int>
+     */
+    public function triageBreakdown(Site $site, Carbon $since): array
+    {
+        $rows = TriageDecision::query()
+            ->where('site_id', $site->id)
+            ->where('occurred_at', '>=', $since)
+            ->selectRaw('status, COUNT(*) as c')
+            ->groupBy('status')
+            ->pluck('c', 'status');
+
+        return [
+            'total' => (int) $rows->sum(),
+            'executed' => (int) ($rows['executed'] ?? 0),
+            'failed' => (int) ($rows['failed'] ?? 0),
+            'skipped' => (int) ($rows['skipped'] ?? 0),
+        ];
+    }
+
+    /**
      * Full context payload for AI Site Brief generation (worker-facing).
      *
      * @return array<string, mixed>
@@ -184,6 +211,7 @@ class SiteContextService
                     'occurred_at' => $e->occurred_at->toIso8601String(),
                 ])
                 ->all(),
+            'triage_24h' => $this->triageBreakdown($site, $since),
         ];
     }
 

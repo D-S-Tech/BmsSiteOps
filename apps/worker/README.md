@@ -49,18 +49,21 @@ apps/worker/
 │   ├── __init__.py                  package marker, __version__
 │   ├── main.py                      FastAPI app + lifespan
 │   ├── config.py                    pydantic-settings (env vars)
-│   └── collectors/
+│   ├── runner.py                    SyncRunner — orchestrates collector -> ingest
+│   ├── collectors/
+│   │   ├── __init__.py              public re-exports
+│   │   ├── base.py                  Collector ABC + CollectorConfig + CollectorEvent
+│   │   ├── trmm.py                  Tactical RMM collector (live)
+│   │   ├── niagara.py               Niagara collector — oBIX (live) + Fox (experimental)
+│   │   └── bacnet.py                BACnet/IP collector — bacpypes3 (request-building tested)
+│   ├── clients/                     HTTP clients (TRMM, oBIX, internal ingest + brief)
+│   ├── ai/                          LLM seam — LiteLLM client + Site Brief generator
+│   └── remediation/                 Worker-side remediation seam
 │       ├── __init__.py              public re-exports
-│       ├── base.py                  Collector ABC + CollectorConfig + CollectorEvent
-│       ├── trmm.py                  Tactical RMM collector (implemented)
-│       ├── niagara.py               Niagara collector — oBIX (live) + Fox (experimental)
-│       ├── bacnet.py                BACnet/IP collector — bacpypes3 (implemented)
-│       ├── niagara.py               Tridium Niagara Fox collector (stub; Sprint 2)
-│       └── bacnet.py                BACnet/IP collector (stub; later sprint)
-└── tests/
-    ├── __init__.py
-    ├── test_health.py               /health endpoint contract
-    └── test_collectors.py           Collector ABC + subclass contracts
+│       ├── base.py                  RemediationAction/Result + Transport ABC + Fake
+│       ├── dispatcher.py            RemediationDispatcher — routes kind -> transport
+│       └── trmm.py                  TRMM transport (restart_trmm_agent; respx-tested)
+└── tests/                           pytest suite
 ```
 
 ## Adding a new collector
