@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\DeviceMuteController;
 use App\Http\Controllers\Api\EventController;
+use App\Http\Controllers\Api\ScriptController;
 use App\Http\Controllers\Api\SiteBriefController;
 use App\Http\Controllers\Api\SiteController;
 use App\Http\Controllers\Api\SiteDashboardController;
@@ -49,6 +50,11 @@ Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->gr
     Route::get('triage-rules', [TriageRuleController::class, 'index'])->name('triage-rules.index');
     Route::get('triage-rules/{rule}', [TriageRuleController::class, 'show'])->name('triage-rules.show');
     Route::get('sites/{site}/triage-decisions', [TriageDecisionController::class, 'index'])->name('sites.triage-decisions.index');
+
+    // Scripts (Sprint 6) — AI script authoring (Qwen 2.5 Coder via Ollama)
+    Route::get('scripts', [ScriptController::class, 'index'])->name('scripts.index');
+    Route::post('scripts', [ScriptController::class, 'store'])->name('scripts.store');
+    Route::get('scripts/{script}', [ScriptController::class, 'show'])->name('scripts.show');
 
     // Sources — full CRUD
     Route::apiResource('sources', SourceController::class);

@@ -3,8 +3,10 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Internal\BriefContextController;
+use App\Http\Controllers\Internal\ClaimScriptController;
 use App\Http\Controllers\Internal\SourceSyncController;
 use App\Http\Controllers\Internal\StoreSiteBriefController;
+use App\Http\Controllers\Internal\SubmitScriptResultController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -32,4 +34,12 @@ Route::middleware('worker.signature')->prefix('internal')->group(function () {
     Route::post('sites/{site}/briefs', StoreSiteBriefController::class)
         ->whereNumber('site')
         ->name('internal.sites.briefs.store');
+
+    // AI Scripts (Sprint 6): worker claims the next pending generation, then
+    // pushes the result back when the model finishes.
+    Route::post('scripts/claim', ClaimScriptController::class)
+        ->name('internal.scripts.claim');
+    Route::post('scripts/{script}/result', SubmitScriptResultController::class)
+        ->whereNumber('script')
+        ->name('internal.scripts.result');
 });
