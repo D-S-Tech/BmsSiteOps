@@ -32,3 +32,4 @@ The recommended sections:
 | 0005 | [License: AGPL-3.0](./0005-license-agpl.md)                    | Accepted | 2026-05-27 |
 | 0006 | [Containerization patterns](./0006-containerization-patterns.md) | Accepted | 2026-05-27 |
 | 0007 | [Deployment topology](./0007-deployment-topology.md)           | Accepted | 2026-05-27 |
+| 0008 | [Time-series events (TimescaleDB)](./0008-timeseries-events-timescaledb.md) | Accepted | 2026-05-28 |
