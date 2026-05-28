@@ -115,31 +115,3 @@ class TestCollectorStructure:
         collector = subclass(cfg)
         assert collector.config is cfg
         assert collector.kind == kind
-
-
-@pytest.mark.parametrize(
-    ("subclass", "kind"),
-    [
-        # TRMM and Niagara are no longer stubs — their behavior is covered by
-        # tests/test_trmm_collector.py and tests/test_niagara_collector.py.
-        # Only BACnet remains a stub tested for empty discover()/poll() here.
-        (BacnetCollector, CollectorKind.BACNET),
-    ],
-)
-class TestStubCollectorBehavior:
-    """Stub collectors return nothing until their sprint lands."""
-
-    async def test_subclass_discover_returns_empty_list(
-        self, subclass: type[Collector], kind: CollectorKind
-    ) -> None:
-        collector = subclass(_config(kind))
-        result = await collector.discover()
-        assert isinstance(result, list)
-        assert result == []
-
-    async def test_subclass_poll_yields_zero_events(
-        self, subclass: type[Collector], kind: CollectorKind
-    ) -> None:
-        collector = subclass(_config(kind))
-        events = [event async for event in collector.poll()]
-        assert events == []

@@ -91,7 +91,7 @@ class CollectorEvent(BaseModel):
     device_external_id: str
     timestamp: datetime
     metric: str
-    value: float | str | bool | None
+    value: bool | int | float | str | None
     severity: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 

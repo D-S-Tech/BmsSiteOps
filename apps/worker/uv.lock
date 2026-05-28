@@ -97,12 +97,22 @@ wheels = [
 ]
 
 [[package]]
+name = "bacpypes3"
+version = "0.0.106"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/3b/4a/9a822ab1de9cd77b67f2d17eccbb954010c36974e3b8acf603cd5ec03a2c/bacpypes3-0.0.106.tar.gz", hash = "sha256:01fdd7497bf93e6b61b153636cb736b87af0723cbab25fb30d419deb1620a95b", size = 234578, upload-time = "2026-03-17T20:07:09.928Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fa/e5/5ac1bb14846f8b3086cd5478ba275bfecd8b65201be3c4b6afab231f1203/bacpypes3-0.0.106-py3-none-any.whl", hash = "sha256:5831ad139f5466fbbb64e8eb768034cfbea66a987a9df280185c39a44ffd0fec", size = 264144, upload-time = "2026-03-17T20:07:08.733Z" },
+]
+
+[[package]]
 name = "bmssiteops-worker"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "asyncpg" },
+    { name = "bacpypes3" },
     { name = "fastapi" },
     { name = "httpx" },
     { name = "pydantic" },
@@ -126,6 +136,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=0.40,<1.0" },
     { name = "asyncpg", specifier = ">=0.30,<1.0" },
+    { name = "bacpypes3", specifier = ">=0.0.98,<1.0" },
     { name = "fastapi", specifier = ">=0.115,<1.0" },
     { name = "httpx", specifier = ">=0.27,<1.0" },
     { name = "pydantic", specifier = ">=2.9,<3.0" },

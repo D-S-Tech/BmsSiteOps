@@ -54,6 +54,7 @@ apps/worker/
 │       ├── base.py                  Collector ABC + CollectorConfig + CollectorEvent
 │       ├── trmm.py                  Tactical RMM collector (implemented)
 │       ├── niagara.py               Niagara collector — oBIX transport (implemented)
+│       ├── bacnet.py                BACnet/IP collector — bacpypes3 (implemented)
 │       ├── niagara.py               Tridium Niagara Fox collector (stub; Sprint 2)
 │       └── bacnet.py                BACnet/IP collector (stub; later sprint)
 └── tests/
