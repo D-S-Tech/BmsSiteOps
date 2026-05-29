@@ -45,12 +45,10 @@
 
     # --- Health check (public, no auth) --------------------------------------
     handle /health {
-        reverse_proxy api:9000 {
-            transport fastcgi {
-                root /srv/api/public
-                split .php
-                index index.php
-            }
+        root * /srv/api/public
+        php_fastcgi api:9000 {
+            split .php
+            index index.php
         }
     }
 
