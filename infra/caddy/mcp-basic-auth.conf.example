@@ -1,0 +1,28 @@
+# =============================================================================
+# BmsSiteOps — MCP basic-auth example
+# =============================================================================
+# Copy this file to mcp-basic-auth.conf to enable HTTP Basic Auth on the
+# {$MCP_HOST} server block:
+#
+#     cp infra/caddy/mcp-basic-auth.conf.example infra/caddy/mcp-basic-auth.conf
+#     make mcp-gen-credentials           # generates the bcrypt hash
+#     # paste the hash into .env as MCP_BASIC_AUTH_HASH
+#     make prod-restart
+#
+# The Caddyfile imports mcp-basic-auth.conf unconditionally; the default stub
+# is empty (just comments) so unauthenticated by default. Once this template
+# is in place, Caddy enforces auth on every request to {$MCP_HOST}.
+# =============================================================================
+
+basic_auth {
+    # Username "operator" with a bcrypt hash supplied via env.
+    # Caddy substitutes {$MCP_BASIC_AUTH_HASH} at config-load time.
+    operator {$MCP_BASIC_AUTH_HASH}
+
+    # Add more users on additional lines as needed, e.g.:
+    #
+    #     denny {$MCP_BASIC_AUTH_HASH_DENNY}
+    #     ops   {$MCP_BASIC_AUTH_HASH_OPS}
+    #
+    # Each user can be hashed separately; mix-and-match is fine.
+}

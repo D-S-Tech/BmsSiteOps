@@ -54,3 +54,74 @@ Certificate state persists in the `caddy_data` named volume, so restarts and red
 ```
 
 Then browse `http://ops.local:8080`. No certificates, no HSTS — so the browser dev console does not complain during local work.
+
+
+## MCP endpoint hardening _(Sprint 8.5)_
+
+The MCP SSE endpoint at `${MCP_HOST}` is **personal-use** — anyone who can reach it can act as the operator whose Sanctum token is in `MCP_API_TOKEN`. Two protection layers ship with the platform; both default to permissive so existing deploys keep working, and both are activated through `.env` and a single config file.
+
+### Layer 1 — IP allowlist (always-on, configurable)
+
+The `Caddyfile` declares a matcher that rejects any client outside `${MCP_IP_ALLOWLIST}`:
+
+```caddy
+@mcp_blocked_ip not remote_ip {$MCP_IP_ALLOWLIST:0.0.0.0/0 ::/0}
+respond @mcp_blocked_ip "Forbidden: client IP not in MCP_IP_ALLOWLIST" 403
+```
+
+Default value `0.0.0.0/0 ::/0` allows everyone (no breaking change). Tighten in `.env`:
+
+```bash
+# Allow only your office network + a single VPN exit IP + IPv6 prefix
+MCP_IP_ALLOWLIST="10.0.0.0/8 198.51.100.42/32 2001:db8::/32"
+```
+
+CIDRs are **space-separated**, not comma-separated — Caddy's `remote_ip` matcher uses space-delimited lists. After editing `.env`, restart Caddy:
+
+```bash
+make prod-restart
+```
+
+### Layer 2 — HTTP Basic Auth (opt-in)
+
+The `Caddyfile` unconditionally `import`s `mcp-basic-auth.conf`. By default this file is a **stub** (just comments) so the import contributes nothing. Replace it to enable:
+
+```bash
+# 1. Generate a bcrypt hash for your password (no local caddy install needed):
+make mcp-gen-credentials
+
+# 2. Drop the hash into .env on the prod host:
+echo 'MCP_BASIC_AUTH_HASH=$2a$14$abcdef...' >> .env
+
+# 3. Activate the directive by swapping the stub for the example template:
+cp infra/caddy/mcp-basic-auth.conf.example infra/caddy/mcp-basic-auth.conf
+
+# 4. Restart Caddy:
+make prod-restart
+```
+
+Test it:
+
+```bash
+# Without credentials -> 401
+curl -i https://${MCP_HOST}/sse
+
+# With credentials -> 200
+curl -i -u operator:<your password> https://${MCP_HOST}/sse
+```
+
+The example template uses one username (`operator`) and the env-sourced hash. Add additional users on additional lines if multiple humans need separate credentials — each user can have its own hash variable.
+
+### Layering both
+
+The two protections compose naturally. A request to the MCP host is:
+
+1. Checked against `MCP_IP_ALLOWLIST` → 403 if outside.
+2. Checked against `basic_auth` → 401 if no/wrong credentials.
+3. Proxied to the worker.
+
+For production deployments where the MCP server is reachable from the internet, **use both** — IP allowlist alone leaks no information when the password is wrong; basic_auth alone requires you to trust HTTPS as the only confidentiality boundary.
+
+### CI validation
+
+The `compose-validate` workflow job runs `caddy validate` over the Caddyfile in **four configurations**: default (no restrictions), IP allowlist set, basic_auth enabled (via the `.example` template), and both layered. All four must parse for a PR to merge.

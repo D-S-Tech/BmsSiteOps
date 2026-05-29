@@ -200,6 +200,18 @@ smoke-test:
 mcp-smoke:
 	@uv run --project apps/worker python infra/scripts/mcp-smoke.py
 
+# -----------------------------------------------------------------------------
+# MCP credential generator (Sprint 8.5)
+# -----------------------------------------------------------------------------
+# Interactive helper that wraps `caddy hash-password` (run via the official
+# caddy:2-alpine image, no local caddy install needed). Prompts for a
+# password, generates a bcrypt hash, prints the recipe for wiring it into
+# .env and mcp-basic-auth.conf.
+# -----------------------------------------------------------------------------
+.PHONY: mcp-gen-credentials
+mcp-gen-credentials:
+	@./infra/scripts/mcp-gen-credentials.sh
+
 .PHONY: prod-up prod-down prod-ps prod-deploy
 prod-up:
 	$(COMPOSE_PROD) up -d

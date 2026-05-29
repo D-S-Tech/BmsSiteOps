@@ -197,13 +197,46 @@ jobs:
           COMPOSE_PROFILES=apps,litellm docker compose -f infra/compose/docker-compose.dev.yml config -q
           rm -f .env
 
-      - name: Validate Caddyfile syntax (prod)
+      - name: Validate Caddyfile syntax (prod, 4 scenarios — Sprint 8.5)
         run: |
-          docker run --rm -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
-            -e WEB_HOST=example.com \
-            -e MCP_HOST=mcp.example.com \
-            -e ACME_EMAIL=ops@example.com \
-            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+          set -e
+          CADDY_RUN=(docker run --rm
+            -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro"
+            -v "$PWD/infra/caddy/mcp-basic-auth.conf:/etc/caddy/mcp-basic-auth.conf:ro"
+            -e WEB_HOST=example.com -e MCP_HOST=mcp.example.com -e ACME_EMAIL=ops@example.com)
+
+          echo '--- 1/4: default (no IP restriction, no basic_auth) ---'
+          "${CADDY_RUN[@]}" caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+          echo '--- 2/4: IP allowlist set ---'
+          "${CADDY_RUN[@]}" -e MCP_IP_ALLOWLIST="10.0.0.0/8 198.51.100.0/24 2001:db8::/32" \
+            caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+          echo '--- 3/4: basic_auth enabled (swap stub for example template) ---'
+          cp infra/caddy/mcp-basic-auth.conf infra/caddy/mcp-basic-auth.conf.bak
+          cp infra/caddy/mcp-basic-auth.conf.example infra/caddy/mcp-basic-auth.conf
+          docker run --rm \
+            -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "$PWD/infra/caddy/mcp-basic-auth.conf:/etc/caddy/mcp-basic-auth.conf:ro" \
+            -e WEB_HOST=example.com -e MCP_HOST=mcp.example.com -e ACME_EMAIL=ops@example.com \
+            -e 'MCP_BASIC_AUTH_HASH=$2a$14$XOPbrlUPQdwdJUpSrIF6X.IY6dvHr2bAXgPgPaWxQ1ELZqe3Qq.iC' \
+            caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+          echo '--- 4/4: both layers (IP allowlist + basic_auth) ---'
+          docker run --rm \
+            -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -v "$PWD/infra/caddy/mcp-basic-auth.conf:/etc/caddy/mcp-basic-auth.conf:ro" \
+            -e WEB_HOST=example.com -e MCP_HOST=mcp.example.com -e ACME_EMAIL=ops@example.com \
+            -e MCP_IP_ALLOWLIST="10.0.0.0/8 198.51.100.0/24" \
+            -e 'MCP_BASIC_AUTH_HASH=$2a$14$XOPbrlUPQdwdJUpSrIF6X.IY6dvHr2bAXgPgPaWxQ1ELZqe3Qq.iC' \
+            caddy:2-alpine \
+            caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+          # Restore the stub so subsequent steps see a clean tree.
+          mv infra/caddy/mcp-basic-auth.conf.bak infra/caddy/mcp-basic-auth.conf
 
       - name: Validate Caddyfile syntax (dev)
         run: |

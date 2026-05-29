@@ -106,6 +106,26 @@
 
     encode zstd gzip
 
+    # ------------------------------------------------------------------------
+    # Sprint 8.5 — MCP endpoint hardening
+    # ------------------------------------------------------------------------
+    # Layer 1: IP allowlist.
+    #   MCP_IP_ALLOWLIST is a space-separated list of CIDRs that may reach
+    #   this host. Default = wildcard (0.0.0.0/0 ::/0) — allows everyone, so
+    #   existing deploys keep working without setting the env. Restrict by
+    #   setting in .env, e.g.:
+    #     MCP_IP_ALLOWLIST="10.0.0.0/8 198.51.100.42/32 2001:db8::/32"
+    @mcp_blocked_ip not remote_ip {$MCP_IP_ALLOWLIST:0.0.0.0/0 ::/0}
+    respond @mcp_blocked_ip "Forbidden: client IP not in MCP_IP_ALLOWLIST" 403
+
+    # Layer 2: optional HTTP Basic Auth.
+    #   The Caddyfile imports an external config file. By default that file
+    #   is a stub (just comments) so the import is a no-op. Operators enable
+    #   auth by replacing the file with a `basic_auth` block — see
+    #   infra/caddy/mcp-basic-auth.conf.example and the recipe in
+    #   infra/caddy/README.md.
+    import mcp-basic-auth.conf
+
     # SSE endpoints need buffering disabled and long timeouts
     reverse_proxy worker:8000 {
         header_up Host {host}

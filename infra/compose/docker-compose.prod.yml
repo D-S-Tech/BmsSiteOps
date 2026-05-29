@@ -253,6 +253,9 @@ services:
       - "443:443/udp"          # HTTP/3 (QUIC)
     volumes:
       - ../caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      # Sprint 8.5 — MCP endpoint hardening. Default is a stub (just
+      # comments); edit infra/caddy/mcp-basic-auth.conf to enable basic_auth.
+      - ../caddy/mcp-basic-auth.conf:/etc/caddy/mcp-basic-auth.conf:ro
       - ../../apps/api/public:/srv/api/public:ro
       - caddy_data:/data
       - caddy_config:/config
