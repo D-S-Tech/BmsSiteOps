@@ -381,6 +381,10 @@ BmsSiteOps/
 
 > **pgvector-deployment note:** activating the production PG optimization is now a 2-step operator action: (1) ensure Postgres has the pgvector extension installed (`pgvector/pgvector:pg16` image, or `apt install postgresql-16-pgvector` inside the container), and (2) run `make prod-migrate`. The three Sprint 8.2 migrations no-op silently on SQLite/MySQL, so re-running CI never touches them. The Sprint 7.2 JSON-text embedding column stays — pgvector reads from a separate `embedding_pg` mirror column synced by a trigger, so re-embedding existing chunks is automatic.
 
+### Sprint 9 detail
+
+- [x] 9.1 — `make cert-status` (Caddy TLS expiry monitor): bash script (`infra/scripts/cert-status.sh`) execs into the running caddy container, walks `/data/caddy/certificates/`, reads each cert's notAfter via `openssl x509 -enddate`, and reports days remaining. Cron-friendly: `QUIET=1` suppresses output on success and the script returns distinct exit codes — 0 (ok), 1 (warning <14d), 2 (critical <7d), 3 (caddy down or no certs). Configurable thresholds via `CERT_WARNING_DAYS` + `CERT_CRITICAL_DAYS`. The exit-code design means a one-line crontab can wire it into alerting
+
 ---
 
 ## 🧪 Testing & CI

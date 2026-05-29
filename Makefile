@@ -186,6 +186,21 @@ smoke-test:
 	@./infra/scripts/smoke-test.sh
 
 # -----------------------------------------------------------------------------
+# Cert status — TLS expiry monitor for Caddy-managed certificates (Sprint 9.1)
+# -----------------------------------------------------------------------------
+# Pokes into the caddy_data volume, parses every cert under
+# /data/caddy/certificates/, and reports days remaining. Designed to be cron-
+# friendly — see infra/scripts/cert-status.sh header for the recipe.
+#
+# Exit codes: 0=ok, 1=warning (<14d), 2=critical (<7d), 3=infra error.
+#
+# Configurable via CERT_WARNING_DAYS, CERT_CRITICAL_DAYS, QUIET=1.
+# -----------------------------------------------------------------------------
+.PHONY: cert-status
+cert-status:
+	@./infra/scripts/cert-status.sh
+
+# -----------------------------------------------------------------------------
 # MCP smoke test — validates the live MCP SSE handshake + tool round trip
 # -----------------------------------------------------------------------------
 # Walks: SSE connect -> initialize -> list_tools -> call_tool. Used as the
