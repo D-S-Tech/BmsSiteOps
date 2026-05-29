@@ -127,6 +127,9 @@ infra/compose/data/
 *.db
 backups/
 
+# Sprint 10 - infra init scripts are intentional config, not data dumps
+!infra/postgres/init/*.sql
+
 # ============================================================================
 # AI / model files (never commit, they're huge)
 # ============================================================================

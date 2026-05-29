@@ -201,6 +201,23 @@ cert-status:
 	@./infra/scripts/cert-status.sh
 
 # -----------------------------------------------------------------------------
+# Postgres extension status (Sprint 10)
+# -----------------------------------------------------------------------------
+# Verifies that the postgres container has timescaledb + pgvector installed
+# and active inside the BmsSiteOps database. After the Sprint 10 image swap
+# to timescale/timescaledb-ha:pg16 + the init script in infra/postgres/init/,
+# both extensions should be present on every fresh deploy automatically.
+#
+# Also prints hypertable inventory (Sprint 3) and vector column inventory
+# (Sprint 8.2) when those migrations have run.
+#
+# Exit codes: 0=ok, 1=missing tool, 2=postgres down, 3=ext missing.
+# -----------------------------------------------------------------------------
+.PHONY: pg-ext-check
+pg-ext-check:
+	@./infra/scripts/pg-ext-check.sh
+
+# -----------------------------------------------------------------------------
 # Backup + restore (Sprint 9.3)
 # -----------------------------------------------------------------------------
 # Captures postgres dump + caddy_data tarball + api_storage tarball into a

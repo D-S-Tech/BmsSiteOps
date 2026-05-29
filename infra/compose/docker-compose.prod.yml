@@ -22,7 +22,12 @@ services:
   # PostgreSQL 16
   # ---------------------------------------------------------------------------
   postgres:
-    image: postgres:16-alpine
+    # Sprint 10 - Timescale's official image bundles BOTH timescaledb
+    # (used by Sprint 3 events hypertable) AND pgvector (used by
+    # Sprint 8.2 RAG vector(768) column + HNSW index). The image is
+    # debian-based and larger than postgres:16-alpine (~500MB vs ~250MB)
+    # but the trade-off is no per-host apt-install of extensions.
+    image: timescale/timescaledb-ha:pg16
     container_name: bmssiteops-postgres
     restart: unless-stopped
     environment:
@@ -32,6 +37,10 @@ services:
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --locale=C"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Sprint 10 init script - postgres runs every .sql file in
+      # /docker-entrypoint-initdb.d/ exactly once, on first DB creation.
+      # The script enables timescaledb + vector inside bmssiteops DB.
+      - ../postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}"]
       interval: 10s
