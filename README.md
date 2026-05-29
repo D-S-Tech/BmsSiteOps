@@ -277,7 +277,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 7 closed the original 8-step roadmap (Sprints 0-7). Site Q&A is end to end — documents chunked at create time, embedded by the worker via Ollama nomic-embed-text, retrieved via PHP cosine similarity, answered by the LLM with structured citations. Worker exposes HMAC-gated /qa endpoints + an MCP server with four tools (ask / list_sites / site_overview / create_script). 376 tests green across api/web/worker. Sprint 8 now extends the platform from 'works in tests' to 'works in production': docker-compose.prod.yml stack, LiteLLM proxy config wired to the live BOLDNJPC Ollama + Anthropic, integration test harness gated on LIVE_TESTS=1, pgvector + TimescaleDB conditional migrations, and a `make smoke-test` validator.**
+> **Status (May 2026): Sprint 8 closed — production validation layer in place. LiteLLM proxy config wires Anthropic + Ollama (BOLDNJPC) + OpenAI fallback behind a single OpenAI-compatible API; live integration test harness (`LIVE_TESTS=1`) proves the transport seams of Sprints 4/6/7.2 round-trip real bytes; three PG-only migrations enable pgvector + HNSW for production-scale RAG (the SQLite cosine path stays for CI); `make smoke-test` walks the full Q&A pipeline end-to-end; `make mcp-smoke` validates the MCP SSE handshake. 379 unit + 7 live tests across api/web/worker; CI runs 5 parallel jobs (repo hygiene, api, web, worker, compose-validate). The platform is now wired end-to-end against the live BOLDNJPC AI workstation.**
 
 <table>
 <thead>
@@ -292,7 +292,7 @@ BmsSiteOps/
 <tr><td><b>5</b></td><td>🟢 Done</td><td>Alert Triage end to end — rule matcher · in-line action execution from ingestion (mute / mark / ignore) · Filament CRUD · worker remediation seam (TRMM agent restart, foundation only)</td></tr>
 <tr><td><b>6</b></td><td>🟢 Done</td><td>AI Script Authoring end to end — request → claim → generate (Ollama / Qwen 2.5 Coder via the existing LiteLLM seam) → submit; Filament audit + SvelteKit /scripts routes with polling</td></tr>
 <tr><td><b>7</b></td><td>🟢 Done</td><td>Site Q&A end to end — documents + chunks data model · embedding pipeline (worker EmbeddingClient seam + EmbeddingsClient + EmbeddingRunner) · VectorSearch + QaService + public POST /api/v1/qa · worker /qa/embed + /qa/answer behind HMAC · MCP server (4 tools) on SSE at <code>ops-mcp.bmssiteops.com/sse</code> · SvelteKit /qa with citations</td></tr>
-<tr><td><b>8</b></td><td>⏳ In progress</td><td>Production deployment &amp; live AI validation — <code>docker-compose.prod.yml</code> + Caddy reverse proxy · production Dockerfiles for api/web/worker · LiteLLM proxy config (Ollama + Anthropic) · live integration test harness gated on <code>LIVE_TESTS=1</code> · pgvector + TimescaleDB conditional migrations · <code>make smoke-test</code> end-to-end validator</td></tr>
+<tr><td><b>8</b></td><td>🟢 Done</td><td>Production deployment &amp; live AI validation — LiteLLM proxy config (Anthropic + Ollama + OpenAI fallback) under opt-in compose profile · live integration test harness gated on <code>LIVE_TESTS=1</code> for worker (`@pytest.mark.live`) and Laravel (`@group integration` + `IntegrationTestCase`) · pgvector conditional migrations (trigger-synced from JSON text column) + HNSW index + driver-aware <code>VectorSearch::topK</code> · <code>make smoke-test</code> Q&amp;A end-to-end validator · <code>make mcp-smoke</code> MCP SSE handshake validator · Connecting Claude Desktop docs with Sanctum-token recipe</td></tr>
 </tbody>
 </table>
 
@@ -374,6 +374,7 @@ BmsSiteOps/
 - [x] 8.1 — LiteLLM proxy config + integration test harness: `infra/litellm/config.yaml` (Anthropic claude-sonnet-4-5 / claude-haiku-4-5 · Ollama qwen2.5-coder 32b/7b · ollama/nomic-embed-text · OpenAI text-embedding-3-small fallback) · opt-in `litellm` compose profile on dev + prod stacks · pytest `live` marker (skipped unless `LIVE_TESTS=1`) · Laravel `tests/Integration/IntegrationTestCase` base + `@group integration` exclusion · `make worker-test-integration` + `make api-test-integration` + `make test-integration` Makefile targets · new CI `compose-validate` job (docker compose config + caddy validate + LiteLLM YAML schema) ([`04d6354`](https://github.com/D-S-Tech/BmsSiteOps/commit/04d6354), [`627f7a2`](https://github.com/D-S-Tech/BmsSiteOps/commit/627f7a2))
 - [x] 8.2 — pgvector conditional migration + VectorSearch PG optimization: three PG-only migrations (`enable_pgvector_extension`, `add_pgvector_column_to_chunks` with BEFORE INSERT/UPDATE trigger that auto-casts JSON text → vector(768), `create_chunks_vector_index` HNSW with cosine_ops) · `VectorSearch::topK` now detects pgsql driver + `embedding_pg` column existence and switches to SQL `ORDER BY embedding_pg <=> query LIMIT k` (with same public contract as the in-memory path; same posture as ADR 0008 TimescaleDB) · pgvector path covered by 3 live integration tests (gated on PG + LIVE_TESTS) · in-memory cosine path stays the default for SQLite/CI
 - [x] 8.3 — `make smoke-test` end-to-end validator: bash script (`infra/scripts/smoke-test.sh`) that uploads a synthetic SOO document, polls until embedding completes (configurable timeout + interval), asks a question whose answer is in the document, asserts the response is Ready with non-empty answer + ≥1 citation, then cleans up. Distinct exit codes (1-5) for each failure mode so a one-line cron can alert on regressions. Required env: `API_BASE_URL` + `API_BEARER_TOKEN` (Sanctum personal access token). Used as the post-prod-deploy acceptance test and the live-Ollama gate
+- [x] 8.4 — MCP SSE handshake validator + Claude Desktop integration: `infra/scripts/mcp-smoke.py` walks SSE connect → MCP initialize → list_tools (asserts all four `bmssiteops_*` tools are present) → call_tool `bmssiteops_list_sites` (asserts parseable JSON with `sites` + `count` keys). Uses the official `mcp` Python SDK as a client; runs via `make mcp-smoke`. Distinct exit codes for transport (2), handshake (3), missing tools (4), and bad call_tool result (5). Plus a Connecting Claude Desktop section in the README with the exact JSON config snippet and Sanctum-token recipe — Sprint 8 closes here
 
 > **pgvector-deployment note:** activating the production PG optimization is now a 2-step operator action: (1) ensure Postgres has the pgvector extension installed (`pgvector/pgvector:pg16` image, or `apt install postgresql-16-pgvector` inside the container), and (2) run `make prod-migrate`. The three Sprint 8.2 migrations no-op silently on SQLite/MySQL, so re-running CI never touches them. The Sprint 7.2 JSON-text embedding column stays — pgvector reads from a separate `embedding_pg` mirror column synced by a trigger, so re-embedding existing chunks is automatic.
 
@@ -468,6 +469,68 @@ Natural-language queries over a single site's telemetry, documents, and history.
 </td>
 </tr>
 </table>
+
+### Connecting Claude Desktop _(Sprint 8.4)_
+
+Once the platform is deployed and the MCP server is reachable at
+`https://${MCP_HOST}/sse`, wire it into Claude Desktop:
+
+**1. Issue a Sanctum personal access token** (run inside the api container):
+
+```bash
+make sh-api
+# inside the container:
+php artisan tinker
+>>> $user = \App\Models\User::where('email', 'denny@boldmech.com')->first();
+>>> $token = $user->createToken('mcp-claude-desktop', ['*'])->plainTextToken;
+>>> echo $token;
+1|abcdef...  # paste this into MCP_API_TOKEN below
+```
+
+**2. Set MCP_API_TOKEN on the worker** (in `.env` on the prod host):
+
+```bash
+MCP_API_TOKEN=1|abcdef...
+```
+
+Restart the worker so `app/main.py` picks it up and mounts the MCP server
+(the mount is conditional on `MCP_API_TOKEN` being non-empty):
+
+```bash
+make prod-restart
+```
+
+**3. Configure Claude Desktop** (`~/Library/Application Support/Claude/claude_desktop_config.json`
+on macOS; `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "bmssiteops": {
+      "transport": "sse",
+      "url": "https://ops-mcp.bmssiteops.com/sse"
+    }
+  }
+}
+```
+
+Restart Claude Desktop. The four `bmssiteops_*` tools (ask / list_sites /
+site_overview / create_script) appear under the 🔌 connector menu.
+
+**4. Validate the handshake before opening Claude Desktop:**
+
+```bash
+MCP_BASE_URL=https://ops-mcp.bmssiteops.com make mcp-smoke
+```
+
+A passing smoke test proves the SSE handshake works and the four tools are
+callable. If it fails, the exit code identifies which layer broke
+(2=transport, 3=initialize, 4=missing tools, 5=tool error).
+
+> The MCP SSE endpoint is **personal-use** — anyone who can reach
+> `ops-mcp.bmssiteops.com` can act as the operator whose Sanctum token is
+> in `MCP_API_TOKEN`. Protect it with Caddy basic_auth, an IP allowlist,
+> or a Cloudflare Access policy in production deploys.
 
 ---
 

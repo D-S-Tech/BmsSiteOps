@@ -185,6 +185,21 @@ test-integration: worker-test-integration api-test-integration
 smoke-test:
 	@./infra/scripts/smoke-test.sh
 
+# -----------------------------------------------------------------------------
+# MCP smoke test — validates the live MCP SSE handshake + tool round trip
+# -----------------------------------------------------------------------------
+# Walks: SSE connect -> initialize -> list_tools -> call_tool. Used as the
+# acceptance test that the MCP server is wired correctly after a deploy,
+# and as the integration validator for Sprint 7.4's MCP work. Run from the
+# worker venv so the mcp SDK is available.
+#
+# Required env: MCP_BASE_URL (e.g. https://ops-mcp.bmssiteops.com)
+# Optional env: MCP_TIMEOUT_SEC (default 30)
+# -----------------------------------------------------------------------------
+.PHONY: mcp-smoke
+mcp-smoke:
+	@uv run --project apps/worker python infra/scripts/mcp-smoke.py
+
 .PHONY: prod-up prod-down prod-ps prod-deploy
 prod-up:
 	$(COMPOSE_PROD) up -d
