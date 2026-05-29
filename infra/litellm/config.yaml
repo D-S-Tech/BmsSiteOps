@@ -1,0 +1,71 @@
+# =============================================================================
+# BmsSiteOps — LiteLLM proxy configuration
+# =============================================================================
+# LiteLLM normalizes every LLM and embedding vendor behind one OpenAI-compatible
+# /chat/completions and /embeddings API. The whole BmsSiteOps platform talks to
+# this proxy — switching providers is a one-line edit here, never a code change.
+#
+# Mounted into the litellm container at /etc/litellm/config.yaml. The container
+# is OPT-IN via the `litellm` compose profile — if you already run a LiteLLM
+# proxy on a dedicated AI workstation (e.g. BOLDNJPC), point LITELLM_BASE_URL
+# at it directly and don't enable the profile.
+# =============================================================================
+
+model_list:
+  # ---- Anthropic ------------------------------------------------------------
+  # AI Site Briefs (Sprint 4) and Site Q&A answer generation (Sprint 7) by
+  # default. Highest quality output; pay-per-token.
+  - model_name: claude-sonnet-4-5
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  - model_name: claude-haiku-4-5
+    litellm_params:
+      model: anthropic/claude-haiku-4-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # ---- Ollama (local, BOLDNJPC) --------------------------------------------
+  # AI Script Authoring (Sprint 6) uses qwen2.5-coder for fully-local code
+  # generation. RAG embeddings (Sprint 7.2) use nomic-embed-text. The
+  # OLLAMA_API_BASE env var points at the host Ollama (host.docker.internal
+  # for desktop, the AI workstation's LAN IP for production deploys).
+  - model_name: ollama/qwen2.5-coder:32b
+    litellm_params:
+      model: ollama/qwen2.5-coder:32b
+      api_base: os.environ/OLLAMA_API_BASE
+
+  - model_name: ollama/qwen2.5-coder:7b
+    litellm_params:
+      model: ollama/qwen2.5-coder:7b
+      api_base: os.environ/OLLAMA_API_BASE
+
+  - model_name: ollama/nomic-embed-text
+    litellm_params:
+      model: ollama/nomic-embed-text
+      api_base: os.environ/OLLAMA_API_BASE
+
+  # ---- OpenAI (fallback, optional) -----------------------------------------
+  # Listed but only resolved when OPENAI_API_KEY is set. Useful for embedding
+  # backfills if the Ollama host is offline.
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+
+litellm_settings:
+  # Drop request params LiteLLM doesn't recognize for the chosen backend
+  # rather than 400-ing. Useful when the worker sends an OpenAI-shaped request
+  # to Anthropic — LiteLLM translates and silently drops what doesn't map.
+  drop_params: true
+  set_verbose: false
+  # Each model call has a max wall-time. Briefs (Sprint 4) can take ~15s
+  # against Anthropic; local Qwen can be slower on first call (model load).
+  request_timeout: 120
+
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+  # Routing strategy when multiple models can serve the same request:
+  # 'least-busy' rotates across backends; 'simple-shuffle' is round-robin;
+  # leaving unset means the first matching model is used.
+  routing_strategy: simple-shuffle

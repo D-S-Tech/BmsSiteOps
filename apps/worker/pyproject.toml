@@ -87,7 +87,11 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-ra --strict-markers"
+# Default pytest excludes 'live' tests. Run them with:
+#   LIVE_TESTS=1 LITELLM_BASE_URL=... LITELLM_MASTER_KEY=... \
+#   uv run pytest tests/integration -m live -v
+addopts = '-ra --strict-markers -m "not live"'
 markers = [
     "integration: requires external services (postgres, redis, etc.)",
+    "live: hits a real LiteLLM proxy / Ollama / Anthropic / etc. Skipped unless LIVE_TESTS=1.",
 ]

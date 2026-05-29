@@ -142,6 +142,29 @@ worker-lint:
 	$(COMPOSE_DEV_APPS) exec worker uv run mypy app
 
 # --- Production ---
+# -----------------------------------------------------------------------------
+# Live integration tests
+# -----------------------------------------------------------------------------
+# Each side has a separate suite that hits real external services (LiteLLM
+# proxy, Ollama, Anthropic, a running worker). Both are gated on LIVE_TESTS=1
+# and skipped from the default test runs.
+#
+# Run them:
+#   make worker-test-integration    (worker -> LiteLLM proxy)
+#   make api-test-integration       (api -> worker -> LiteLLM)
+#
+# Both target the *dev* stack — bring it up first with `make dev-up-all`.
+# Required env vars are documented in each side's tests/integration/ README.
+# -----------------------------------------------------------------------------
+.PHONY: worker-test-integration api-test-integration test-integration
+worker-test-integration:
+	$(COMPOSE_DEV_APPS) exec -e LIVE_TESTS=1 worker uv run pytest tests/integration -m live -v
+
+api-test-integration:
+	$(COMPOSE_DEV_APPS) exec -e LIVE_TESTS=1 api php artisan test --testsuite=Integration
+
+test-integration: worker-test-integration api-test-integration
+
 .PHONY: prod-up prod-down prod-ps prod-deploy
 prod-up:
 	$(COMPOSE_PROD) up -d

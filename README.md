@@ -388,6 +388,35 @@ The `ci.yml` workflow runs four parallel jobs on every push/PR:
 | **API (Laravel)** | `composer install` · `pint --test` · `php artisan test` against in-memory SQLite |
 | **Web (SvelteKit)** | `npm ci` · `prettier --check` · `eslint .` · `svelte-check` · `vitest --run` · production build |
 | **Worker (Python)** | `uv sync --frozen` · `ruff check` · `ruff format --check` · `mypy app` (strict) · `pytest` |
+| **Compose syntax** _(Sprint 8.1)_ | `docker compose config -q` for both dev + prod stacks (with and without optional profiles) · `caddy validate` for both Caddyfiles · LiteLLM YAML schema check |
+
+### Live integration tests _(Sprint 8.1)_
+
+A second, opt-in test layer hits real external services — LiteLLM proxy,
+Ollama, Anthropic, a running worker. **Not run in CI.** Operators trigger
+them by hand to validate every transport seam built across Sprints 4, 6,
+and 7.2 actually round-trips real bytes:
+
+```bash
+# Worker -> LiteLLM proxy (embeddings + completions)
+cd apps/worker
+LIVE_TESTS=1 \
+LITELLM_BASE_URL=http://10.0.0.42:4000 \
+LITELLM_MASTER_KEY=<the proxy key> \
+uv run pytest tests/integration -m live -v
+
+# Or via the Makefile (uses the running dev stack)
+make worker-test-integration
+
+# Laravel -> worker round trip (HMAC + /qa/embed + /qa/answer)
+make api-test-integration
+```
+
+Each test is decorated with `@pytest.mark.live` (Python) or extends
+`IntegrationTestCase` (Laravel); both layers skip cleanly unless
+`LIVE_TESTS=1` is set, so default `pytest -q` / `php artisan test` runs
+ignore them. Same posture as TimescaleDB (ADR 0008) and pgvector — the
+unit suite proves the request shape; the live suite proves the wire.
 
 ---
 

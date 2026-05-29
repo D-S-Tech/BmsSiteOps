@@ -168,3 +168,49 @@ jobs:
 
       - name: pytest
         run: uv run pytest -ra
+
+
+  # ---------------------------------------------------------------------------
+  # Compose validate — Sprint 8.1.
+  # Catches docker-compose syntax errors, missing service references, and
+  # malformed YAML in both the dev and prod stacks. Doesn't actually start
+  # the stack — just runs `docker compose config -q` which parses & resolves.
+  # ---------------------------------------------------------------------------
+  compose-validate:
+    name: Compose syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate prod compose
+        run: |
+          cp infra/compose/.env.prod.example .env
+          docker compose -f infra/compose/docker-compose.prod.yml config -q
+          # And again with the litellm profile enabled.
+          COMPOSE_PROFILES=litellm docker compose -f infra/compose/docker-compose.prod.yml config -q
+          rm -f .env
+
+      - name: Validate dev compose
+        run: |
+          cp infra/compose/.env.prod.example .env
+          docker compose -f infra/compose/docker-compose.dev.yml config -q
+          COMPOSE_PROFILES=apps,litellm docker compose -f infra/compose/docker-compose.dev.yml config -q
+          rm -f .env
+
+      - name: Validate Caddyfile syntax (prod)
+        run: |
+          docker run --rm -v "$PWD/infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -e WEB_HOST=example.com \
+            -e MCP_HOST=mcp.example.com \
+            -e ACME_EMAIL=ops@example.com \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+      - name: Validate Caddyfile syntax (dev)
+        run: |
+          docker run --rm -v "$PWD/infra/caddy/Caddyfile.dev:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
+
+      - name: Validate LiteLLM config YAML
+        run: |
+          python3 -c "import yaml; yaml.safe_load(open('infra/litellm/config.yaml'))"
+          python3 -c "import yaml; doc = yaml.safe_load(open('infra/litellm/config.yaml')); assert 'model_list' in doc and len(doc['model_list']) > 0, 'model_list must be non-empty'"

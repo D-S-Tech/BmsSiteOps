@@ -11,7 +11,23 @@
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
         </testsuite>
+        <!--
+            Integration suite hits live external services (the worker, a real
+            LiteLLM proxy, the running Postgres). Excluded from the default
+            test run. Enable via the testsuite flag and LIVE_TESTS=1.
+            See tests/Integration/README.md for required env vars.
+        -->
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
     </testsuites>
+
+    <!-- Exclude Integration suite by default; opt in via phpunit testsuite flag -->
+    <groups>
+        <exclude>
+            <group>integration</group>
+        </exclude>
+    </groups>
     <source>
         <include>
             <directory>app</directory>

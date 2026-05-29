@@ -147,6 +147,35 @@ services:
     networks: [bmssiteops]
 
   # ---------------------------------------------------------------------------
+  # LiteLLM — local proxy in front of Ollama / Anthropic / OpenAI.
+  # Opt-in via the 'litellm' profile (most devs already have a LiteLLM proxy
+  # on a dedicated AI workstation). See infra/litellm/README.md.
+  # ---------------------------------------------------------------------------
+  litellm:
+    image: ghcr.io/berriai/litellm:main-latest
+    profiles: [litellm]
+    restart: unless-stopped
+    command: ["--config", "/etc/litellm/config.yaml", "--port", "4000", "--host", "0.0.0.0"]
+    volumes:
+      - ../litellm/config.yaml:/etc/litellm/config.yaml:ro
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-changeme-dev-only}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://host.docker.internal:11434}
+    ports:
+      - "4000:4000"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/health/liveliness"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks: [bmssiteops]
+
+  # ---------------------------------------------------------------------------
   # Caddy — reverse proxy for all developer-facing endpoints
   # ---------------------------------------------------------------------------
   caddy:
