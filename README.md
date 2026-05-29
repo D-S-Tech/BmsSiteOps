@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-376%2F376-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-379%2F379-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -369,16 +369,23 @@ BmsSiteOps/
 
 > **Ollama-embedding note:** the embedding worker uses `ollama/nomic-embed-text` by default — switchable to OpenAI `text-embedding-3-small` or Voyage `voyage-2` via a LiteLLM proxy config change. Request shape (POST /embeddings, model + input array, Bearer auth, index sorting) is respx-tested; the live call against a running LiteLLM proxy with an Ollama-backed embedding model is integration-only.
 
+### Sprint 8 detail
+
+- [x] 8.1 — LiteLLM proxy config + integration test harness: `infra/litellm/config.yaml` (Anthropic claude-sonnet-4-5 / claude-haiku-4-5 · Ollama qwen2.5-coder 32b/7b · ollama/nomic-embed-text · OpenAI text-embedding-3-small fallback) · opt-in `litellm` compose profile on dev + prod stacks · pytest `live` marker (skipped unless `LIVE_TESTS=1`) · Laravel `tests/Integration/IntegrationTestCase` base + `@group integration` exclusion · `make worker-test-integration` + `make api-test-integration` + `make test-integration` Makefile targets · new CI `compose-validate` job (docker compose config + caddy validate + LiteLLM YAML schema) ([`04d6354`](https://github.com/D-S-Tech/BmsSiteOps/commit/04d6354), [`627f7a2`](https://github.com/D-S-Tech/BmsSiteOps/commit/627f7a2))
+- [x] 8.2 — pgvector conditional migration + VectorSearch PG optimization: three PG-only migrations (`enable_pgvector_extension`, `add_pgvector_column_to_chunks` with BEFORE INSERT/UPDATE trigger that auto-casts JSON text → vector(768), `create_chunks_vector_index` HNSW with cosine_ops) · `VectorSearch::topK` now detects pgsql driver + `embedding_pg` column existence and switches to SQL `ORDER BY embedding_pg <=> query LIMIT k` (with same public contract as the in-memory path; same posture as ADR 0008 TimescaleDB) · pgvector path covered by 3 live integration tests (gated on PG + LIVE_TESTS) · in-memory cosine path stays the default for SQLite/CI
+
+> **pgvector-deployment note:** activating the production PG optimization is now a 2-step operator action: (1) ensure Postgres has the pgvector extension installed (`pgvector/pgvector:pg16` image, or `apt install postgresql-16-pgvector` inside the container), and (2) run `make prod-migrate`. The three Sprint 8.2 migrations no-op silently on SQLite/MySQL, so re-running CI never touches them. The Sprint 7.2 JSON-text embedding column stays — pgvector reads from a separate `embedding_pg` mirror column synced by a trigger, so re-embedding existing chunks is automatic.
+
 ---
 
 ## 🧪 Testing & CI
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 189 | ✅ |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 192 | ✅ |
 | `apps/web` (SvelteKit) | Vitest 4 | 22 | ✅ |
 | `apps/worker` (Python) | pytest 8 | 165 | ✅ |
-| **Total** | | **376** | **✅** |
+| **Total** | | **379** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 

@@ -5,36 +5,43 @@ declare(strict_types=1);
 namespace App\Services\RAG;
 
 use App\Models\DocumentChunk;
+use App\Support\CurrentTenant;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Top-K vector similarity search over embedded document chunks.
  *
- * The PHP implementation loads chunks (tenant-scoped automatically via the
- * BelongsToTenant trait's global scope) and computes cosine similarity in
- * memory. This is fast enough for hundreds to low-thousands of chunks per
- * tenant — the realistic ceiling for a multi-site HVAC/MEP contractor.
+ * Two execution paths, selected automatically by database driver:
  *
- * A future deployment-time optimization on PostgreSQL is to install pgvector
- * and migrate the document_chunks.embedding column from TEXT (JSON-serialized
- * floats) to vector(N), then replace the cosineSimilarity() pass with a SQL
- * ORDER BY embedding <-> query LIMIT k. The public contract of this service
- * (queryVector, k, optional siteId) stays the same — same posture as the
- * TimescaleDB hypertable conversion noted in ADR 0008.
+ *  - PostgreSQL with pgvector — uses the SQL operator `<=>` (cosine
+ *    distance) against the `embedding_pg vector(768)` column populated by
+ *    the trigger added in migration 2026_05_28_180100. With the HNSW index
+ *    from migration 2026_05_28_180200, this scales to millions of chunks
+ *    per tenant. Activated automatically when the migration has been run.
+ *
+ *  - SQLite / MySQL / PostgreSQL-without-pgvector — falls back to the
+ *    in-memory PHP cosine pass. Fast enough for hundreds to low-thousands
+ *    of chunks per tenant; this is what CI runs.
+ *
+ * The public contract — `topK(queryVector, k, ?siteId)` returning a
+ * `list<{chunk_id, document_id, document_title, content, score}>` sorted
+ * by descending similarity — is identical between paths. Sprint 7.3
+ * callers (`QaService`) need no awareness of the optimization.
+ *
+ * Same posture as TimescaleDB hypertable conversion (ADR 0008): the
+ * production PG optimization activates when the operator has installed
+ * the extension and run the migrations; CI tests the portable path.
  */
 final class VectorSearch
 {
+    /** Cached driver name so we don't re-query for every call. */
+    private static ?string $driver = null;
+
+    /** Cached column existence check for the pgvector mirror column. */
+    private static ?bool $hasPgVectorColumn = null;
+
     /**
-     * Return the top-K chunks ordered by cosine similarity desc.
-     *
-     * Result shape per element:
-     *   {
-     *     chunk_id:        int,
-     *     document_id:     int,
-     *     document_title:  ?string,
-     *     content:         string,
-     *     score:           float (cosine similarity, [-1, 1])
-     *   }
-     *
      * @param  list<float>  $queryVector
      * @return list<array{chunk_id: int, document_id: int, document_title: ?string, content: string, score: float}>
      */
@@ -44,6 +51,118 @@ final class VectorSearch
             return [];
         }
 
+        if ($this->canUsePgvector()) {
+            return $this->topKPgvector($queryVector, $k, $siteId);
+        }
+
+        return $this->topKInMemory($queryVector, $k, $siteId);
+    }
+
+    /**
+     * Cosine similarity between two vectors. Pure function; no DB.
+     *
+     * @param  list<float>  $a
+     * @param  list<float>  $b
+     */
+    public function cosineSimilarity(array $a, array $b): float
+    {
+        $n = min(count($a), count($b));
+        if ($n === 0) {
+            return 0.0;
+        }
+
+        $dot = 0.0;
+        $normA = 0.0;
+        $normB = 0.0;
+
+        for ($i = 0; $i < $n; $i++) {
+            $av = (float) $a[$i];
+            $bv = (float) $b[$i];
+            $dot += $av * $bv;
+            $normA += $av * $av;
+            $normB += $bv * $bv;
+        }
+
+        if ($normA == 0.0 || $normB == 0.0) {
+            return 0.0;
+        }
+
+        return $dot / (sqrt($normA) * sqrt($normB));
+    }
+
+    /**
+     * Clear the driver + column existence cache. Called from tests when the
+     * connection or schema changes between test cases.
+     */
+    public static function clearCache(): void
+    {
+        self::$driver = null;
+        self::$hasPgVectorColumn = null;
+    }
+
+    // -----------------------------------------------------------------
+    // Path A: pgvector (PostgreSQL with the Sprint 8.2 migrations applied)
+    // -----------------------------------------------------------------
+
+    /**
+     * @param  list<float>  $queryVector
+     * @return list<array{chunk_id: int, document_id: int, document_title: ?string, content: string, score: float}>
+     */
+    private function topKPgvector(array $queryVector, int $k, ?int $siteId): array
+    {
+        // pgvector wants `[0.1,0.2,...]` format with NO spaces.
+        $vec = '['.implode(',', array_map(fn ($v) => (float) $v, $queryVector)).']';
+
+        // The <=> operator returns cosine *distance* (1 - cosine similarity).
+        // We compute `1 - distance` to keep the score semantically aligned
+        // with the in-memory path (higher = more similar).
+        $select = [
+            'document_chunks.id as chunk_id',
+            'document_chunks.document_id',
+            'document_chunks.content',
+            'documents.title as document_title',
+            DB::raw('(1 - (document_chunks.embedding_pg <=> ?::vector)) as score'),
+        ];
+
+        $bindings = [$vec];
+
+        $sql = DB::table('document_chunks')
+            ->select($select)
+            ->join('documents', 'documents.id', '=', 'document_chunks.document_id')
+            ->whereNotNull('document_chunks.embedding_pg')
+            ->where('document_chunks.tenant_id', CurrentTenant::id());
+
+        if ($siteId !== null) {
+            $sql->where('documents.site_id', $siteId);
+        }
+
+        $sql->orderByRaw('document_chunks.embedding_pg <=> ?::vector', [$vec])
+            ->limit($k);
+
+        // Prepend the SELECT-clause binding (the orderByRaw appends its own).
+        $sql->addBinding($bindings, 'select');
+
+        $rows = $sql->get();
+
+        return $rows->map(fn ($r) => [
+            'chunk_id' => (int) $r->chunk_id,
+            'document_id' => (int) $r->document_id,
+            'document_title' => $r->document_title,
+            'content' => (string) $r->content,
+            'score' => (float) $r->score,
+        ])->all();
+    }
+
+    // -----------------------------------------------------------------
+    // Path B: in-memory PHP cosine (SQLite, MySQL, or PG without pgvector)
+    // -----------------------------------------------------------------
+
+    /**
+     * @param  list<float>  $queryVector
+     * @return list<array{chunk_id: int, document_id: int, document_title: ?string, content: string, score: float}>
+     */
+    private function topKInMemory(array $queryVector, int $k, ?int $siteId): array
+    {
         $query = DocumentChunk::query()
             ->whereNotNull('embedding')
             ->with('document:id,title,site_id');
@@ -75,42 +194,25 @@ final class VectorSearch
         return array_slice($scored, 0, $k);
     }
 
-    /**
-     * Cosine similarity between two vectors. If lengths differ we use the
-     * common prefix — this protects us when an upstream embedding model is
-     * changed and old chunks haven't been re-embedded yet (in that case
-     * scores will be junk but we don't crash; the operator will notice and
-     * re-embed).
-     *
-     * Returns 0.0 for any pair where at least one vector is all-zero,
-     * matching the convention that a zero vector has no defined direction.
-     *
-     * @param  list<float>  $a
-     * @param  list<float>  $b
-     */
-    public function cosineSimilarity(array $a, array $b): float
+    // -----------------------------------------------------------------
+    // Driver detection
+    // -----------------------------------------------------------------
+
+    private function canUsePgvector(): bool
     {
-        $n = min(count($a), count($b));
-        if ($n === 0) {
-            return 0.0;
+        if (self::$driver === null) {
+            self::$driver = Schema::getConnection()->getDriverName();
+        }
+        if (self::$driver !== 'pgsql') {
+            return false;
         }
 
-        $dot = 0.0;
-        $normA = 0.0;
-        $normB = 0.0;
-
-        for ($i = 0; $i < $n; $i++) {
-            $av = (float) $a[$i];
-            $bv = (float) $b[$i];
-            $dot += $av * $bv;
-            $normA += $av * $av;
-            $normB += $bv * $bv;
+        if (self::$hasPgVectorColumn === null) {
+            // hasColumn() is a cheap information_schema lookup; we cache
+            // the result for the rest of the request lifecycle.
+            self::$hasPgVectorColumn = Schema::hasColumn('document_chunks', 'embedding_pg');
         }
 
-        if ($normA == 0.0 || $normB == 0.0) {
-            return 0.0;
-        }
-
-        return $dot / (sqrt($normA) * sqrt($normB));
+        return self::$hasPgVectorColumn;
     }
 }
