@@ -292,7 +292,7 @@ BmsSiteOps/
 <tr><td><b>5</b></td><td>🟢 Done</td><td>Alert Triage end to end — rule matcher · in-line action execution from ingestion (mute / mark / ignore) · Filament CRUD · worker remediation seam (TRMM agent restart, foundation only)</td></tr>
 <tr><td><b>6</b></td><td>🟢 Done</td><td>AI Script Authoring end to end — request → claim → generate (Ollama / Qwen 2.5 Coder via the existing LiteLLM seam) → submit; Filament audit + SvelteKit /scripts routes with polling</td></tr>
 <tr><td><b>7</b></td><td>🟢 Done</td><td>Site Q&A end to end — documents + chunks data model · embedding pipeline (worker EmbeddingClient seam + EmbeddingsClient + EmbeddingRunner) · VectorSearch + QaService + public POST /api/v1/qa · worker /qa/embed + /qa/answer behind HMAC · MCP server (4 tools) on SSE at <code>ops-mcp.bmssiteops.com/sse</code> · SvelteKit /qa with citations</td></tr>
-<tr><td><b>8</b></td><td>🟢 Done</td><td>Production deployment &amp; live AI validation — LiteLLM proxy config (Anthropic + Ollama + OpenAI fallback) under opt-in compose profile · live integration test harness gated on <code>LIVE_TESTS=1</code> · pgvector conditional migrations + HNSW + driver-aware <code>VectorSearch::topK</code> · <code>make smoke-test</code> Q&amp;A end-to-end · <code>make mcp-smoke</code> MCP SSE handshake · Connecting Claude Desktop docs · MCP endpoint hardening (Caddy IP allowlist + basic_auth, both backward-compatible) with <code>make mcp-gen-credentials</code> helper</td></tr>
+<tr><td><b>8</b></td><td>🟢 Done</td><td>Production deployment &amp; live AI validation — LiteLLM proxy config (Anthropic + Ollama + OpenAI fallback) · live integration test harness gated on <code>LIVE_TESTS=1</code> · pgvector + HNSW + driver-aware <code>VectorSearch::topK</code> · <code>make smoke-test</code> Q&amp;A end-to-end · <code>make mcp-smoke</code> MCP SSE handshake · Connecting Claude Desktop docs · MCP endpoint hardening (Caddy IP allowlist + basic_auth + rate_limit via custom xcaddy build) with <code>make mcp-gen-credentials</code> helper · Cloudflare Access alternative docs</td></tr>
 </tbody>
 </table>
 
@@ -376,6 +376,7 @@ BmsSiteOps/
 - [x] 8.3 — `make smoke-test` end-to-end validator: bash script (`infra/scripts/smoke-test.sh`) that uploads a synthetic SOO document, polls until embedding completes (configurable timeout + interval), asks a question whose answer is in the document, asserts the response is Ready with non-empty answer + ≥1 citation, then cleans up. Distinct exit codes (1-5) for each failure mode so a one-line cron can alert on regressions. Required env: `API_BASE_URL` + `API_BEARER_TOKEN` (Sanctum personal access token). Used as the post-prod-deploy acceptance test and the live-Ollama gate
 - [x] 8.4 — MCP SSE handshake validator + Claude Desktop integration: `infra/scripts/mcp-smoke.py` walks SSE connect → MCP initialize → list_tools (asserts all four `bmssiteops_*` tools are present) → call_tool `bmssiteops_list_sites` (asserts parseable JSON with `sites` + `count` keys). Uses the official `mcp` Python SDK as a client; runs via `make mcp-smoke`. Distinct exit codes for transport (2), handshake (3), missing tools (4), and bad call_tool result (5). Plus a Connecting Claude Desktop section in the README with the exact JSON config snippet and Sanctum-token recipe — Sprint 8 closes here
 - [x] 8.5 — MCP endpoint hardening (Caddy basic_auth + IP allowlist): closes the security caveat from 8.4 with two protection layers, both backward-compatible (default = wildcard CIDR + stub basic_auth.conf = unauthenticated; existing deploys keep working). Layer 1 — `@mcp_blocked_ip not remote_ip {$MCP_IP_ALLOWLIST}` matcher with default `0.0.0.0/0 ::/0`; restrict in `.env` with space-separated CIDRs. Layer 2 — Caddyfile unconditionally imports `mcp-basic-auth.conf`; default is a stub, swap for `.example` to enable. `make mcp-gen-credentials` wraps `caddy hash-password` to generate bcrypt hashes (no local caddy install needed). CI `compose-validate` now exercises 4 Caddyfile scenarios (default · IP-restricted · basic_auth · both layers)
+- [x] 8.6 — Rate limiting + Cloudflare Access alternative: custom Caddy build via `infra/docker/caddy.Dockerfile` (xcaddy with `github.com/mholt/caddy-ratelimit`) baked into the prod compose; `rate_limit` directive on the MCP host caps clients at `MCP_RATE_LIMIT_PER_MIN` (default 30) req/min per IP — caps basic_auth brute force AND damps misbehaving SSE clients. CI now builds the custom image before the 4-scenario Caddyfile validate (and stock `caddy:2-alpine` is intentionally rejected so CI catches a deleted Dockerfile). Plus a Cloudflare Access alternative documented in `infra/caddy/README.md` — service token via `claude_desktop_config.json` headers + Cloudflare IP allowlist tightening recipe. Triage explicitly skipped: Caddyfile.dev parallel basic_auth (dev is localhost) and geo-block via maxminddb (covered by IP allowlist; GeoLite2 license overhead not worth it)
 
 > **pgvector-deployment note:** activating the production PG optimization is now a 2-step operator action: (1) ensure Postgres has the pgvector extension installed (`pgvector/pgvector:pg16` image, or `apt install postgresql-16-pgvector` inside the container), and (2) run `make prod-migrate`. The three Sprint 8.2 migrations no-op silently on SQLite/MySQL, so re-running CI never touches them. The Sprint 7.2 JSON-text embedding column stays — pgvector reads from a separate `embedding_pg` mirror column synced by a trigger, so re-embedding existing chunks is automatic.
 
@@ -530,12 +531,15 @@ callable. If it fails, the exit code identifies which layer broke
 
 > The MCP SSE endpoint is **personal-use** — anyone who can reach
 > `ops-mcp.bmssiteops.com` can act as the operator whose Sanctum token
-> is in `MCP_API_TOKEN`. The Sprint 8.5 hardening adds two protection
-> layers out of the box: set `MCP_IP_ALLOWLIST` in `.env` to restrict by
-> CIDR, and run `make mcp-gen-credentials` + swap `infra/caddy/mcp-basic-auth.conf`
-> for the `.example` template to enable HTTP Basic Auth. See
-> [infra/caddy/README.md](infra/caddy/README.md#mcp-endpoint-hardening-sprint-85)
-> for the full recipe.
+> is in `MCP_API_TOKEN`. The Sprint 8.5 + 8.6 hardening adds three
+> protection layers out of the box: `MCP_IP_ALLOWLIST` in `.env` to
+> restrict by CIDR; `make mcp-gen-credentials` + swap
+> `infra/caddy/mcp-basic-auth.conf` for the `.example` template to enable
+> HTTP Basic Auth; and a per-IP rate limit (default 30 req/min) via the
+> `rate_limit` directive baked into the custom Caddy build. As an
+> alternative to the Caddy stack, teams with Cloudflare-fronted domains
+> can use Cloudflare Access with service tokens — see
+> [infra/caddy/README.md](infra/caddy/README.md) for both recipes.
 
 ---
 

@@ -244,7 +244,13 @@ services:
   # Caddy — TLS termination + reverse proxy + static asset serving
   # ---------------------------------------------------------------------------
   caddy:
-    image: caddy:2-alpine
+    # Sprint 8.6 — custom Caddy build with the rate_limit module baked in
+    # (github.com/mholt/caddy-ratelimit). Falls back to caddy:2-alpine
+    # functionality + an extra directive available to the Caddyfile.
+    build:
+      context: ..
+      dockerfile: docker/caddy.Dockerfile
+    image: bmssiteops/caddy:latest
     container_name: bmssiteops-caddy
     restart: unless-stopped
     ports:
@@ -264,6 +270,10 @@ services:
       API_HOST: ${API_HOST}
       MCP_HOST: ${MCP_HOST}
       ACME_EMAIL: ${ACME_EMAIL:-ops@bmssiteops.com}
+      # Sprint 8.6 — MCP rate limit (req/min per client IP). Default 30
+      # is plenty for human-paced Claude Desktop / Cursor traffic and
+      # caps brute-force attempts against basic_auth.
+      MCP_RATE_LIMIT_PER_MIN: ${MCP_RATE_LIMIT_PER_MIN:-30}
     depends_on:
       - api
       - web

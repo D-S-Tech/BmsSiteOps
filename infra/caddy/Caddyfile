@@ -126,6 +126,21 @@
     #   infra/caddy/README.md.
     import mcp-basic-auth.conf
 
+    # Layer 3: per-IP rate limit (Sprint 8.6).
+    #   Caps requests per client IP so a brute-force attempt against
+    #   basic_auth (or just a misbehaving client) can't drown the worker.
+    #   Default is 30 req/min; tune via MCP_RATE_LIMIT_PER_MIN in .env.
+    #   The `rate_limit` directive ships with our custom Caddy build
+    #   (infra/docker/caddy.Dockerfile pulls in caddy-ratelimit). The
+    #   `static` zone keys on remote_ip — one bucket per client.
+    rate_limit {
+        zone mcp_per_ip {
+            key {remote_host}
+            events {$MCP_RATE_LIMIT_PER_MIN:30}
+            window 1m
+        }
+    }
+
     # SSE endpoints need buffering disabled and long timeouts
     reverse_proxy worker:8000 {
         header_up Host {host}
