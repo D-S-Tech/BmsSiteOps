@@ -277,7 +277,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprint 8 closed — production validation layer in place. LiteLLM proxy config wires Anthropic + Ollama (BOLDNJPC) + OpenAI fallback behind a single OpenAI-compatible API; live integration test harness (`LIVE_TESTS=1`) proves the transport seams of Sprints 4/6/7.2 round-trip real bytes; three PG-only migrations enable pgvector + HNSW for production-scale RAG (the SQLite cosine path stays for CI); `make smoke-test` walks the full Q&A pipeline end-to-end; `make mcp-smoke` validates the MCP SSE handshake. 379 unit + 7 live tests across api/web/worker; CI runs 5 parallel jobs (repo hygiene, api, web, worker, compose-validate). The platform is now wired end-to-end against the live BOLDNJPC AI workstation.**
+> **Status (May 2026): Sprints 0-8 closed. Site Q&A end-to-end + production-grade hardening: LiteLLM proxy seam, gated live-integration harness, pgvector + HNSW (driver-aware `VectorSearch::topK`), `make smoke-test` + `make mcp-smoke` validators, and a 3-layer MCP defense stack (IP allowlist + basic_auth + rate_limit via custom xcaddy build) with Cloudflare Access as documented alternative. Sprint 9 opens operational hardening — `make cert-status` for TLS expiry alerting, MCP tool-call audit logging into Laravel, and `make backup` for postgres + volume snapshots. 379 tests green; 5 CI jobs (repo hygiene, api, web, worker, compose-validate).**
 
 <table>
 <thead>
@@ -293,6 +293,7 @@ BmsSiteOps/
 <tr><td><b>6</b></td><td>🟢 Done</td><td>AI Script Authoring end to end — request → claim → generate (Ollama / Qwen 2.5 Coder via the existing LiteLLM seam) → submit; Filament audit + SvelteKit /scripts routes with polling</td></tr>
 <tr><td><b>7</b></td><td>🟢 Done</td><td>Site Q&A end to end — documents + chunks data model · embedding pipeline (worker EmbeddingClient seam + EmbeddingsClient + EmbeddingRunner) · VectorSearch + QaService + public POST /api/v1/qa · worker /qa/embed + /qa/answer behind HMAC · MCP server (4 tools) on SSE at <code>ops-mcp.bmssiteops.com/sse</code> · SvelteKit /qa with citations</td></tr>
 <tr><td><b>8</b></td><td>🟢 Done</td><td>Production deployment &amp; live AI validation — LiteLLM proxy config (Anthropic + Ollama + OpenAI fallback) · live integration test harness gated on <code>LIVE_TESTS=1</code> · pgvector + HNSW + driver-aware <code>VectorSearch::topK</code> · <code>make smoke-test</code> Q&amp;A end-to-end · <code>make mcp-smoke</code> MCP SSE handshake · Connecting Claude Desktop docs · MCP endpoint hardening (Caddy IP allowlist + basic_auth + rate_limit via custom xcaddy build) with <code>make mcp-gen-credentials</code> helper · Cloudflare Access alternative docs</td></tr>
+<tr><td><b>9</b></td><td>⏳ In progress</td><td>Operational hardening — <code>make cert-status</code> (Caddy TLS expiry monitor, alerts &lt;14d / &lt;7d) · MCP tool-call audit log (worker emits <code>X-MCP-Tool</code> header; Laravel middleware writes to <code>mcp_audit_entries</code> with tenant + user + payload; Filament resource for ops; nightly prune command) · <code>make backup</code> (postgres pg_dump + caddy_data + api_storage tarballs; optional S3 upload via <code>BACKUP_S3_BUCKET</code>)</td></tr>
 </tbody>
 </table>
 
