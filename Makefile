@@ -165,6 +165,26 @@ api-test-integration:
 
 test-integration: worker-test-integration api-test-integration
 
+# -----------------------------------------------------------------------------
+# Smoke test — end-to-end validator against a running stack
+# -----------------------------------------------------------------------------
+# Uploads a synthetic document, waits for the worker to embed it, asks a
+# question whose answer is in the doc, asserts the response is Ready with
+# non-empty answer + citations. Exit code != 0 on any failure.
+#
+# Use after every prod-deploy and as the acceptance test that the live
+# BOLDNJPC AI stack is wired correctly.
+#
+# Required env (passed through to the script):
+#   API_BASE_URL      base URL of the api service
+#   API_BEARER_TOKEN  a Sanctum personal access token
+#
+# Optional: POLL_TIMEOUT_SEC, POLL_INTERVAL_SEC, QUESTION, VERBOSE.
+# -----------------------------------------------------------------------------
+.PHONY: smoke-test
+smoke-test:
+	@./infra/scripts/smoke-test.sh
+
 .PHONY: prod-up prod-down prod-ps prod-deploy
 prod-up:
 	$(COMPOSE_PROD) up -d
