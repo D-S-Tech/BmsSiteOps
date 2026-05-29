@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\LogMcpToolCalls;
 use App\Http\Middleware\SetTenantFromUser;
 use App\Http\Middleware\VerifyWorkerSignature;
 use Illuminate\Foundation\Application;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'worker.signature' => VerifyWorkerSignature::class,
             'tenant' => SetTenantFromUser::class,
+            'mcp.audit' => LogMcpToolCalls::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

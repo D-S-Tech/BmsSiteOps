@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-379%2F379-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-392%2F392-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -384,6 +384,7 @@ BmsSiteOps/
 ### Sprint 9 detail
 
 - [x] 9.1 — `make cert-status` (Caddy TLS expiry monitor): bash script (`infra/scripts/cert-status.sh`) execs into the running caddy container, walks `/data/caddy/certificates/`, reads each cert's notAfter via `openssl x509 -enddate`, and reports days remaining. Cron-friendly: `QUIET=1` suppresses output on success and the script returns distinct exit codes — 0 (ok), 1 (warning <14d), 2 (critical <7d), 3 (caddy down or no certs). Configurable thresholds via `CERT_WARNING_DAYS` + `CERT_CRITICAL_DAYS`. The exit-code design means a one-line crontab can wire it into alerting
+- [x] 9.2 — MCP tool-call audit log: worker `LaravelClient._headers()` accepts an optional `mcp_tool` parameter; each public tool method (list_sites, site_overview, ask, create_script) passes its own name, producing an `X-MCP-Tool: bmssiteops_*` header on every outbound Laravel call. Laravel-side `LogMcpToolCalls` middleware (aliased `mcp.audit`, applied on the `v1` route group after `auth:sanctum + tenant`) reads the header and writes one `mcp_audit_entries` row per call: tenant_id, user_id, tool_name, method, path, request_payload (truncated >8 KB), response_status, duration_ms, ip_address. Failure to write the audit row is logged and swallowed (auditing is best-effort observability, never breaks the actual response). `php artisan audit:prune-mcp --days=90` deletes old rows; scheduled nightly at 03:15 via `routes/console.php`. 8 new Laravel tests (4 middleware + 4 prune command) + 5 new worker tests (each tool stamps its header + helper omits when unset)
 
 ---
 
@@ -391,10 +392,10 @@ BmsSiteOps/
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 192 | ✅ |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 200 | ✅ |
 | `apps/web` (SvelteKit) | Vitest 4 | 22 | ✅ |
-| `apps/worker` (Python) | pytest 8 | 165 | ✅ |
-| **Total** | | **379** | **✅** |
+| `apps/worker` (Python) | pytest 8 | 170 | ✅ |
+| **Total** | | **392** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 

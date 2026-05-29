@@ -33,7 +33,7 @@ Route::get('v1/ping', fn () => response()->json([
     'time' => now()->toIso8601String(),
 ]))->name('api.v1.ping');
 
-Route::middleware(['auth:sanctum', 'tenant'])->prefix('v1')->name('api.v1.')->group(function () {
+Route::middleware(['auth:sanctum', 'tenant', 'mcp.audit'])->prefix('v1')->name('api.v1.')->group(function () {
     Route::get('me', fn (Request $request) => $request->user())->name('me');
 
     // Sites — read-only for now (created via admin / seeders)
