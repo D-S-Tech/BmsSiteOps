@@ -201,6 +201,36 @@ cert-status:
 	@./infra/scripts/cert-status.sh
 
 # -----------------------------------------------------------------------------
+# Backup + restore (Sprint 9.3)
+# -----------------------------------------------------------------------------
+# Captures postgres dump + caddy_data tarball + api_storage tarball into a
+# timestamped directory under $BACKUP_DIR (default /var/lib/bmssiteops/backups).
+# Optional S3 upload if BACKUP_S3_BUCKET is set.
+#
+# Cron recipe (daily at 02:00 local — sits before audit:prune-mcp at 03:15):
+#   0 2 * * * /opt/bmssiteops/infra/scripts/backup.sh \
+#                 >> /var/log/bmssiteops-backup.log 2>&1
+#
+# Restore — DESTRUCTIVE; requires the app stack to be down first:
+#   make prod-down
+#   make backup-restore  BACKUP=/var/lib/bmssiteops/backups/20260529T120000Z
+#   make prod-up
+# -----------------------------------------------------------------------------
+.PHONY: backup backup-list backup-restore
+backup:
+	@./infra/scripts/backup.sh
+
+backup-list:
+	@ls -1tr $${BACKUP_DIR:-/var/lib/bmssiteops/backups} 2>/dev/null || echo "  (no backups yet at $${BACKUP_DIR:-/var/lib/bmssiteops/backups})"
+
+backup-restore:
+	@if [ -z "$$BACKUP" ]; then \
+		echo "usage: make backup-restore BACKUP=/var/lib/bmssiteops/backups/<timestamp>"; \
+		exit 1; \
+	fi
+	@./infra/scripts/backup-restore.sh "$$BACKUP"
+
+# -----------------------------------------------------------------------------
 # MCP smoke test — validates the live MCP SSE handshake + tool round trip
 # -----------------------------------------------------------------------------
 # Walks: SSE connect -> initialize -> list_tools -> call_tool. Used as the
