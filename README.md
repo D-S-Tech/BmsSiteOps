@@ -9,7 +9,7 @@ _Tactical RMM · Tridium Niagara · BACnet/IP — under one site, with AI on top
 [![CI](https://img.shields.io/github/actions/workflow/status/D-S-Tech/BmsSiteOps/ci.yml?branch=main&label=CI&logo=github&style=flat-square)](https://github.com/D-S-Tech/BmsSiteOps/actions/workflows/ci.yml)
 [![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue?style=flat-square)](LICENSE)
 [![Status: Pre-alpha](https://img.shields.io/badge/Status-Pre--alpha-orange?style=flat-square)](#-sprint-roadmap)
-[![Tests](https://img.shields.io/badge/tests-392%2F392-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
+[![Tests](https://img.shields.io/badge/tests-398%2F398-success?style=flat-square&logo=pytest&logoColor=white)](#-testing--ci)
 
 [![Laravel](https://img.shields.io/badge/Laravel-13-FF2D20?style=flat-square&logo=laravel&logoColor=white)](https://laravel.com)
 [![Filament](https://img.shields.io/badge/Filament-5-F59E0B?style=flat-square)](https://filamentphp.com)
@@ -277,7 +277,7 @@ BmsSiteOps/
 
 ## 🗺️ Sprint roadmap
 
-> **Status (May 2026): Sprints 0-10 closed. Platform feature-complete: Site Q&A with RAG + MCP server, 3-layer MCP defense, pgvector vector search, gated live-integration harness, smoke + mcp-smoke + cert-status validators, MCP audit log, backup/restore. Sprint 10 closed the last operator-side gap: the production Postgres now ships with TimescaleDB + pgvector pre-installed (image swap + init script) and `make pg-ext-check` verifies on every deploy. **392 unit tests** + 5 live integration suites; 5 CI jobs.**
+> **Status (May 2026): Sprints 0-11 closed. Platform feature-complete: Site Q&A with RAG + MCP server, 3-layer MCP defense, pgvector vector search, gated live-integration harness, smoke + mcp-smoke + cert-status validators, MCP audit log, backup/restore. Sprint 10 closed the last operator-side gap: the production Postgres now ships with TimescaleDB + pgvector pre-installed (image swap + init script) and `make pg-ext-check` verifies on every deploy. **398 unit tests** + 5 live integration suites; 5 CI jobs.**
 
 <table>
 <thead>
@@ -295,6 +295,7 @@ BmsSiteOps/
 <tr><td><b>8</b></td><td>🟢 Done</td><td>Production deployment &amp; live AI validation — LiteLLM proxy config (Anthropic + Ollama + OpenAI fallback) · live integration test harness gated on <code>LIVE_TESTS=1</code> · pgvector + HNSW + driver-aware <code>VectorSearch::topK</code> · <code>make smoke-test</code> Q&amp;A end-to-end · <code>make mcp-smoke</code> MCP SSE handshake · Connecting Claude Desktop docs · MCP endpoint hardening (Caddy IP allowlist + basic_auth + rate_limit via custom xcaddy build) with <code>make mcp-gen-credentials</code> helper · Cloudflare Access alternative docs</td></tr>
 <tr><td><b>9</b></td><td>🟢 Done</td><td>Operational hardening — <code>make cert-status</code> Caddy TLS expiry monitor (cron-friendly exit codes) · MCP tool-call audit log: worker stamps <code>X-MCP-Tool</code> header, Laravel <code>mcp.audit</code> middleware writes <code>mcp_audit_entries</code> per call, nightly <code>audit:prune-mcp</code> retention · <code>make backup</code> + <code>make backup-restore</code> (postgres custom dump + caddy_data + api_storage tarballs, optional S3 upload, 30-day local retention)</td></tr>
 <tr><td><b>10</b></td><td>🟢 Done</td><td>Postgres extensions baseline — production postgres now ships with TimescaleDB + pgvector pre-installed (image swap to <code>timescale/timescaledb-ha:pg16</code>, both ext-s built in) · idempotent init script <code>infra/postgres/init/01-enable-extensions.sql</code> runs on first DB start · <code>make pg-ext-check</code> verifier prints extension/version/schema for each enabled ext · Sprint 3 hypertable conversion and Sprint 8.2 pgvector migrations now activate automatically without per-host apt-install</td></tr>
+<tr><td><b>11</b></td><td>🟢 Done</td><td>Ops UI + composite health — Filament <code>McpAuditEntryResource</code> for ops review (paginated list with tool/status/duration/IP columns, filters for errors-only + slow + last-24h, view page with collapsible request payload, read-only by design) · <code>make health</code> composite check wraps cert-status + pg-ext-check + mcp-smoke + smoke-test + last-backup-age into one cron-friendly command with aggregate worst-severity exit code</td></tr>
 </tbody>
 </table>
 
@@ -396,14 +397,19 @@ BmsSiteOps/
 
 ---
 
+### Sprint 11 detail
+
+- [x] 11.1 — `McpAuditEntryResource` Filament resource (Sprint 9.2 audit log gets a UI): paginated list under 'Operations' nav group with columns for time / tool (badged) / user / method (color-coded by verb) / path / status (color-coded by class) / duration (color-coded by latency) / IP (mono, hidden by default). Filters: tool selector, status selector, plus toggles for `errors_only` (status>=400), `slow_only` (duration>=1s), and `last_24h`. View page lays out three Sections (Call / Identity / Request payload — collapsible KeyValueEntry). Read-only by design: no create/edit pages registered, no toolbar actions. 6 feature tests cover list rendering, tenant scoping (other-tenant rows invisible), tool filter, errors-only logic, view page, and resource navigation metadata
+- [x] 11.2 — `make health` composite check: bash script (`infra/scripts/health.sh`) wraps cert-status + pg-ext-check + mcp-smoke + smoke-test + last-backup-age in one report. Each sub-check captures its own exit code; aggregate report uses the worst severity seen (0=ok, 1=warning, 2=critical). `QUIET=1` keeps cron output silent on full success; `SKIP_SMOKE=1` avoids the LLM-token round-trip. Backup freshness check derives from the newest directory under `$BACKUP_DIR`; warning over `BACKUP_MAX_AGE_HOURS` (default 36h), critical at 2x. Designed as the daily ops summary AND the post-deploy acceptance gate
+
 ## 🧪 Testing & CI
 
 | App | Framework | Tests | Status |
 |---|---|---:|:---:|
-| `apps/api` (Laravel) | PHPUnit 12 + Pao | 200 | ✅ |
+| `apps/api` (Laravel) | PHPUnit 12 + Pao | 206 | ✅ |
 | `apps/web` (SvelteKit) | Vitest 4 | 22 | ✅ |
 | `apps/worker` (Python) | pytest 8 | 170 | ✅ |
-| **Total** | | **392** | **✅** |
+| **Total** | | **398** | **✅** |
 
 The `ci.yml` workflow runs four parallel jobs on every push/PR:
 

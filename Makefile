@@ -218,6 +218,30 @@ pg-ext-check:
 	@./infra/scripts/pg-ext-check.sh
 
 # -----------------------------------------------------------------------------
+# Composite health check (Sprint 11.2)
+# -----------------------------------------------------------------------------
+# Wraps cert-status + pg-ext-check + mcp-smoke + smoke-test + backup-age in
+# a single command. Designed as the daily ops summary AND the
+# post-deploy acceptance gate. Each sub-check runs independently and the
+# aggregate exit code is the worst severity seen.
+#
+#   exit 0   all checks passed
+#   exit 1   at least one warning (e.g. skipped check because env unset)
+#   exit 2   at least one critical (cert expiring, postgres down, etc.)
+#
+# Cron-friendly: QUIET=1 stays silent on full success, prints on warning+.
+# Set SKIP_SMOKE=1 to avoid the Q&A round-trip (saves LLM tokens).
+#
+# Required env for full coverage:
+#   API_BASE_URL + API_BEARER_TOKEN   (smoke-test)
+#   MCP_BASE_URL                       (mcp-smoke)
+#   BACKUP_DIR                         (backup-age — default /var/lib/...)
+# -----------------------------------------------------------------------------
+.PHONY: health
+health:
+	@./infra/scripts/health.sh
+
+# -----------------------------------------------------------------------------
 # Backup + restore (Sprint 9.3)
 # -----------------------------------------------------------------------------
 # Captures postgres dump + caddy_data tarball + api_storage tarball into a
